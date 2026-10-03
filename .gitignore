@@ -2,3 +2,9 @@
 node_modules/
 dist/
 *.local
+
+# Secrets and databases: never commit (also listed in backend/.gitignore)
+backend/.env
+*.db
+*.db-wal
+*.db-shm

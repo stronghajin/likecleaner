@@ -65,25 +65,80 @@ http://localhost:5173
 ## 백엔드 서버 실행하기 (Phase 2 개발 중)
 
 Phase 2 작업이 끝나기 전까지 화면은 계속 가짜 데이터로 동작합니다. 백엔드는 따로 켜서 확인합니다.
+파이썬 버전과 가상환경, 패키지 설치는 **uv**라는 도구가 한꺼번에 맡습니다(DECISIONS.md 36). 그래서 `pip`이나 `venv` 명령은 쓰지 않습니다.
 
-**처음 한 번만:** uv가 설치되어 있어야 합니다. 터미널에 `uv --version`을 입력했을 때 버전 숫자가 나오면 됩니다. 안 나오면 `docs/PHASE2_PLAN.md`의 "A. uv 설치"를 따라 하세요.
+### 1. 터미널 열기
 
-1. **새 터미널**을 엽니다. 화면(`npm run dev`)을 켜 둔 터미널과는 다른 터미널이어야 합니다. VS Code에서는 터미널 오른쪽 위의 `+`를 누르면 됩니다.
-2. 백엔드 폴더로 이동합니다.
-   ```
-   cd ~/Desktop/likecleaner/backend
-   ```
-3. 서버를 켭니다. 처음에는 필요한 파일을 받느라 조금 걸립니다.
-   ```
-   uv run uvicorn app.main:app --reload --port 8000
-   ```
-   `Application startup complete.`가 나오면 켜진 것입니다.
-4. 브라우저에서 확인합니다.
-   - http://localhost:8000/api/health → `{"status":"ok","database":"ok"}`
-   - http://localhost:8000/docs → API 목록 화면
-5. 끄기: 그 터미널에서 `Ctrl` + `C`
+**새 터미널**을 엽니다. 화면(`npm run dev`)을 켜 둔 터미널과는 다른 터미널이어야 합니다. VS Code에서는 터미널 오른쪽 위의 `+`를 누르면 됩니다.
 
-> 비밀 설정값은 `backend/.env`에 있습니다. 이 파일은 GitHub에 올라가지 않으며, 내용을 다른 곳에 붙여 넣지 마세요.
+### 2. uv 확인 (처음 한 번)
+
+```
+uv --version
+```
+
+`uv 0.x.x`처럼 버전이 나오면 됩니다. `command not found`가 나오면 `docs/PHASE2_PLAN.md`의 "A. uv 설치"를 먼저 하세요.
+
+### 3. 백엔드 폴더로 이동
+
+```
+cd ~/Desktop/likecleaner/backend
+```
+
+### 4. Python 확인 (처음 한 번)
+
+```
+uv run python --version
+```
+
+`Python 3.13.x`가 나오면 됩니다. 컴퓨터에 원래 있던 파이썬(3.9)과는 별개로, uv가 이 프로젝트용 파이썬을 받아 둡니다. 처음에는 내려받느라 조금 걸릴 수 있습니다.
+
+### 5. 가상환경 만들기 + 패키지 설치
+
+처음 한 번, 그리고 GitHub에서 새로 받았거나 패키지 목록이 바뀌었을 때만 실행합니다.
+
+```
+uv sync
+```
+
+이 명령 하나로 두 가지가 됩니다.
+- `backend/.venv` 폴더(이 프로젝트 전용 가상환경)를 만든다
+- `pyproject.toml`에 적힌 패키지(FastAPI 등)를 설치한다
+
+마지막 줄에 `Installed … packages`, `Audited … packages`, `Checked … packages` 중 하나가 나오면 끝입니다(이미 설치되어 있으면 Checked/Audited).
+
+### 6. 설정 파일 확인 (처음 한 번)
+
+`backend/.env` 파일이 있어야 합니다. 이 컴퓨터에는 이미 만들어 두었습니다. 다른 컴퓨터라면 `backend/.env.example`을 복사해 `.env`로 이름을 바꾸고, 각 줄 위의 설명대로 값을 채우세요. 이 파일은 GitHub에 올라가지 않으며, 내용을 다른 곳에 붙여 넣지 마세요.
+
+### 7. 서버 켜기
+
+```
+uv run uvicorn app.main:app --reload --port 8000
+```
+
+`Application startup complete.`가 나오면 켜진 것입니다. 서버가 켜질 때 DB 파일(`backend/data/likecleaner.db`)과 테이블이 자동으로 만들어집니다.
+
+### 8. 브라우저에서 확인
+
+- http://localhost:8000/api/health → `{"status":"ok","database":"ok"}`
+- http://localhost:8000/docs → API 목록 화면. 여기서 직접 시험해 볼 수 있습니다.
+  1. `GET /api/health` 줄을 클릭해 펼칩니다.
+  2. 오른쪽의 **Try it out** → 파란 **Execute** 버튼을 누릅니다.
+  3. 아래 **Responses**에 `Code 200`과 `{"status": "ok", "database": "ok"}`가 나오면 정상입니다.
+
+### 9. 끄기
+
+서버를 켠 터미널에서 `Ctrl` + `C`를 누릅니다.
+
+### 자주 생기는 문제
+
+| 증상 | 해결 |
+|---|---|
+| `uv: command not found` | 2번 단계를 보세요. 설치 직후라면 터미널을 닫았다 다시 여세요 |
+| `address already in use` | 서버가 이미 다른 터미널에서 켜져 있습니다. 그 터미널에서 `Ctrl` + `C`로 끄고 다시 켜세요 |
+| `ValidationError` 또는 `.env` 관련 오류 | `backend/.env`의 값 형식이 틀렸습니다. `.env.example`의 설명과 비교해 보세요. 숫자 칸(`DAILY_QUOTA`)에 글자가 들어가지 않았는지 확인하세요 |
+| `ModuleNotFoundError` | 5번(`uv sync`)을 다시 실행하세요 |
 
 ## 앱 안에서 테스트하기
 

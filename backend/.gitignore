@@ -1,6 +1,9 @@
 # Secrets and local data: never commit (CLAUDE.md)
 .env
 data/
+*.db
+*.db-wal
+*.db-shm
 
 # Python
 .venv/

@@ -14,6 +14,8 @@ class Settings(BaseSettings):
         env_file=BACKEND_DIR / ".env",
         env_file_encoding="utf-8",
         extra="ignore",
+        # A blank line like `DAILY_QUOTA=` means "use the default below".
+        env_ignore_empty=True,
     )
 
     # Google OAuth (filled in by the user before P2-2)
