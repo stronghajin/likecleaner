@@ -96,3 +96,5 @@
 46. YouTube 카테고리 이름은 `hl=en`, `regionCode=US`로 조회한다.
 47. mock 모드는 지우지 않고, 개발 중에만 설정 하나로 mock / 실제 API를 바꿀 수 있게 남긴다. DEV 패널은 mock 모드일 때만 보인다. 운영 결과물(build)에는 mock과 DEV 패널이 들어가지 않는다. (PHASE1_NOTES 4장의 "mock 삭제"를 대체)
 48. 실제 API를 쓸 때 진행 상황 조회 간격은 1.5초로 한다(mock은 0.7초 유지 가능).
+49. 기획서 2장의 환경 변수에 두 가지를 더한다: `SESSION_SECRET`(로그인 쿠키 서명용 무작위 문자열), `DATABASE_URL`(선택, 기본값은 `backend/data/likecleaner.db`). `TOKEN_ENCRYPTION_KEY`와 `SESSION_SECRET`은 처음 설정할 때 자동 생성해 `backend/.env`에만 둔다.
+50. 서버가 켜질 때 DB 구조를 자동으로 최신 상태로 맞춘다(alembic upgrade). 따로 DB 준비 명령을 실행할 필요가 없다.

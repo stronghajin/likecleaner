@@ -62,6 +62,29 @@ http://localhost:5173
 - 터미널 창이나 VS Code를 닫아도 종료됩니다.
 - 다시 켤 때는 2번(폴더 이동)과 4번(`npm run dev`)만 하면 됩니다.
 
+## 백엔드 서버 실행하기 (Phase 2 개발 중)
+
+Phase 2 작업이 끝나기 전까지 화면은 계속 가짜 데이터로 동작합니다. 백엔드는 따로 켜서 확인합니다.
+
+**처음 한 번만:** uv가 설치되어 있어야 합니다. 터미널에 `uv --version`을 입력했을 때 버전 숫자가 나오면 됩니다. 안 나오면 `docs/PHASE2_PLAN.md`의 "A. uv 설치"를 따라 하세요.
+
+1. **새 터미널**을 엽니다. 화면(`npm run dev`)을 켜 둔 터미널과는 다른 터미널이어야 합니다. VS Code에서는 터미널 오른쪽 위의 `+`를 누르면 됩니다.
+2. 백엔드 폴더로 이동합니다.
+   ```
+   cd ~/Desktop/likecleaner/backend
+   ```
+3. 서버를 켭니다. 처음에는 필요한 파일을 받느라 조금 걸립니다.
+   ```
+   uv run uvicorn app.main:app --reload --port 8000
+   ```
+   `Application startup complete.`가 나오면 켜진 것입니다.
+4. 브라우저에서 확인합니다.
+   - http://localhost:8000/api/health → `{"status":"ok","database":"ok"}`
+   - http://localhost:8000/docs → API 목록 화면
+5. 끄기: 그 터미널에서 `Ctrl` + `C`
+
+> 비밀 설정값은 `backend/.env`에 있습니다. 이 파일은 GitHub에 올라가지 않으며, 내용을 다른 곳에 붙여 넣지 마세요.
+
 ## 앱 안에서 테스트하기
 
 - 화면 오른쪽 아래의 **DEV** 버튼으로 개발용 패널을 열 수 있습니다. 승인 상태, 오류 상황, 남은 할당량을 바꿔 가며 테스트할 수 있습니다.
