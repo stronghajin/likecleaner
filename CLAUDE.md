@@ -1,8 +1,12 @@
 # LikeCleaner — 작업 규칙
 
 YouTube "좋아요 한 동영상"과 재생목록을 한 화면에서 보고 일괄 정리하는 웹 툴.
-기획서 원본은 `docs/SPEC.md`이며, 모든 판단의 기준은 이 기획서다.
-기획서의 애매한 부분에 대한 확정 사항은 `docs/DECISIONS.md`에 있다. 둘을 함께 따른다.
+기획서 원본은 `docs/SPEC.md`, 기획서의 애매한 부분과 이후 변경에 대한 확정 사항은 `docs/DECISIONS.md`에 있다.
+
+## 문서 우선순위
+
+- `docs/DECISIONS.md`가 `docs/SPEC.md`보다 우선한다. 둘의 내용이 다르면 DECISIONS.md를 따른다.
+- 그 밖의 경우는 SPEC.md가 판단의 기준이다.
 
 ## 사용자에 대해
 
@@ -22,7 +26,7 @@ frontend/   # Phase 1 — React 앱
   src/pages/      # 화면 단위
   src/components/ # 공통 부품
   src/state/      # 로그인 상태, 할당량 등 여러 화면이 함께 쓰는 상태
-backend/    # Phase 2 — FastAPI (지금은 만들지 않음)
+backend/    # Phase 2 — FastAPI (지금은 만들지 않음, 구조는 아래 "백엔드 구조 원칙")
 docs/       # 기획서
 ```
 
@@ -40,6 +44,39 @@ docs/       # 기획서
 - services의 함수는 실제 API처럼 비동기(Promise)로 동작하고, 약간의 지연과 오류도 흉내 낼 수 있게 만든다.
 - 데이터 타입(영상, 재생목록, 작업, 할당량 등)은 한 곳에 정의하고, 기획서 9장 테이블 구조와 맞춘다.
 - Phase 2에서는 services 내부 구현만 실제 API 호출로 교체하고, 화면 코드는 바꾸지 않는 것이 목표다.
+
+## 백엔드 구조 원칙 (Phase 2에서 적용)
+
+### 폴더
+
+```
+backend/app/
+  api/           # 라우터
+  services/      # 비즈니스 로직
+  repositories/  # DB 접근
+  clients/       # 외부 API (YouTube, Google OAuth, 메일 등)
+  schemas/       # Pydantic 스키마
+  models/        # SQLAlchemy 모델
+  workers/       # 백그라운드 작업
+  core/          # 설정 등 공통 기반
+```
+
+### 계층 규칙
+
+- 호출 방향은 `api → services → repositories / clients` 한 방향만이다. 계층 건너뛰기 금지.
+- api는 DB나 외부 API를 직접 호출하지 않는다.
+- repositories와 clients에는 비즈니스 판단을 넣지 않는다.
+- 계층 간 데이터는 반드시 Pydantic 스키마 객체로 전달한다. dict, ORM 객체, 외부 API 원본 JSON을 계층 밖으로 넘기지 않는다.
+- 응답 스키마는 `frontend/src/services/types.ts`의 타입과 같은 구조로 맞춘다.
+
+### 비동기 규칙
+
+- 모든 계층 함수는 `async def`로 작성한다.
+  - DB: SQLAlchemy `AsyncSession` + `aiosqlite`
+  - 외부 API: `httpx.AsyncClient` (`google-api-python-client` 사용 금지)
+  - 메일: `aiosmtplib`
+- `time.sleep`, `requests` 같은 블로킹 코드는 금지한다.
+- 일괄 작업 항목은 할당량과 속도 제한 때문에 순차 처리를 유지한다.
 
 ## UI와 디자인
 
