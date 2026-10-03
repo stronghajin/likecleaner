@@ -271,7 +271,10 @@ export default function PlaylistsPage() {
       {confirming && active && (
         <RemoveFromPlaylistDialog
           playlist={active}
-          playlistItemIds={all.filter((i) => selectedIds.has(i.playlistItemId)).map((i) => i.playlistItemId)}
+          items={all
+            .filter((i) => selectedIds.has(i.playlistItemId))
+            .map((i) => ({ id: i.playlistItemId, title: i.title }))}
+          onDeselect={deselect}
           onClose={() => setConfirming(false)}
           onStarted={onJobStarted}
         />

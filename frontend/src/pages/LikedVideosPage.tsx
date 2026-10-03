@@ -69,6 +69,11 @@ export default function LikedVideosPage() {
 
   const all = useMemo(() => videos ?? [], [videos])
   const channels = useMemo(() => countBy(all, (v) => v.channelTitle), [all])
+  // Selected videos in the order they were selected, for the confirm dialogs (DECISIONS.md 29).
+  const selectedEntries = useMemo(() => {
+    const byId = new Map(all.map((v) => [v.id, v]))
+    return [...selectedIds].map((id) => ({ id, title: byId.get(id)?.title ?? id }))
+  }, [all, selectedIds])
   const categories = useMemo(() => countBy(all, (v) => v.categoryName), [all])
 
   const filtered = useMemo(() => {
@@ -240,10 +245,20 @@ export default function LikedVideosPage() {
       </SelectionBar>
 
       {dialog === 'remove' && (
-        <RemoveLikeDialog videoIds={[...selectedIds]} onClose={() => setDialog(null)} onStarted={onJobStarted} />
+        <RemoveLikeDialog
+          items={selectedEntries}
+          onDeselect={deselect}
+          onClose={() => setDialog(null)}
+          onStarted={onJobStarted}
+        />
       )}
       {dialog === 'move' && (
-        <MoveToPlaylistDialog videoIds={[...selectedIds]} onClose={() => setDialog(null)} onStarted={onJobStarted} />
+        <MoveToPlaylistDialog
+          items={selectedEntries}
+          onDeselect={deselect}
+          onClose={() => setDialog(null)}
+          onStarted={onJobStarted}
+        />
       )}
     </>
   )

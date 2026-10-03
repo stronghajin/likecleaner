@@ -6,19 +6,25 @@ import { formatNumber } from '../../utils/format'
 import Button from '../Button'
 import Modal from '../Modal'
 import { errorText } from './ErrorText'
-import { estimateText, notEnoughText, useQuotaCheck } from './QuotaEstimate'
+import { estimateText, useQuotaCheck } from './QuotaEstimate'
+import QuotaWarning from './QuotaWarning'
+import SelectedList from './SelectedList'
+import type { SelectedEntry } from './SelectedList'
 
 interface Props {
-  videoIds: string[]
+  /** The current selection; it shrinks live as items are removed in the second step. */
+  items: SelectedEntry[]
+  /** Unselects these videos in the main list. */
+  onDeselect: (ids: string[]) => void
   onClose: () => void
   onStarted: (job: Job) => void
 }
 
 // Move to Playlist (SPEC.md 6-6): 1. pick one playlist, 2. choose Move Only or Move and Remove Likes.
-export default function MoveToPlaylistDialog({ videoIds, onClose, onStarted }: Props) {
+export default function MoveToPlaylistDialog({ items, onDeselect, onClose, onStarted }: Props) {
   const [target, setTarget] = useState<Playlist | null>(null)
   return target ? (
-    <ConfirmMove videoIds={videoIds} playlist={target} onClose={onClose} onStarted={onStarted} />
+    <ConfirmMove items={items} onDeselect={onDeselect} playlist={target} onClose={onClose} onStarted={onStarted} />
   ) : (
     <PickPlaylist onClose={onClose} onPick={setTarget} />
   )
@@ -86,10 +92,10 @@ interface ConfirmProps extends Props {
   playlist: Playlist
 }
 
-function ConfirmMove({ videoIds, playlist, onClose, onStarted }: ConfirmProps) {
+function ConfirmMove({ items, onDeselect, playlist, onClose, onStarted }: ConfirmProps) {
   const { refreshQuota } = useQuota()
-  const moveAndUnlike = useQuotaCheck('move_and_unlike', videoIds.length, playlist.itemCount)
-  const moveOnly = useQuotaCheck('move', videoIds.length, playlist.itemCount)
+  const moveAndUnlike = useQuotaCheck('move_and_unlike', items.length, playlist.itemCount)
+  const moveOnly = useQuotaCheck('move', items.length, playlist.itemCount)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
@@ -99,12 +105,14 @@ function ConfirmMove({ videoIds, playlist, onClose, onStarted }: ConfirmProps) {
     setBusy(true)
     setError('')
     try {
-      onStarted(await api.createJob({ type, videoIds, targetPlaylistId: playlist.id }))
+      onStarted(await api.createJob({ type, videoIds: items.map((i) => i.id), targetPlaylistId: playlist.id }))
     } catch (e) {
       setError(errorText(e))
       setBusy(false)
     }
   }
+
+  const keepFirst = (count: number) => onDeselect(items.slice(count).map((i) => i.id))
 
   // One row per choice, each with its own estimate; only a choice that does not fit is blocked (DECISIONS.md 8).
   const options = [
@@ -118,35 +126,35 @@ function ConfirmMove({ videoIds, playlist, onClose, onStarted }: ConfirmProps) {
   ]
 
   return (
-    <Modal
-      title="Move to Playlist"
-      onClose={onClose}
-      width={600}
-      footer={<Button onClick={onClose}>Cancel</Button>}
-    >
+    <Modal title="Move to Playlist" onClose={onClose} width={600} footer={<Button onClick={onClose}>Cancel</Button>}>
       <p>
-        Move {formatNumber(videoIds.length)} videos to &quot;{playlist.title}&quot;. Do you also want to remove their
+        Move {formatNumber(items.length)} videos to &quot;{playlist.title}&quot;. Do you also want to remove their
         likes?
       </p>
       <div className="mt-5 flex flex-col gap-3">
         {options.map(({ type, label, check, variant }) => (
-          <div key={type} className="flex items-center justify-between gap-4 border p-4">
-            <div>
-              <p className="font-bold text-accent">{label}</p>
-              <p className="mt-1 text-muted">{estimateText(check.units)}</p>
-              {!check.loading && !check.enough && <p className="mt-1 text-danger">{notEnoughText(check.maxItems)}</p>}
+          <div key={type} className="border p-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="font-bold text-accent">{label}</p>
+                <p className="mt-1 text-muted">{estimateText(check.units)}</p>
+              </div>
+              <Button
+                variant={variant}
+                className="shrink-0"
+                onClick={() => start(type)}
+                disabled={items.length === 0 || !check.enough || busy}
+              >
+                {label}
+              </Button>
             </div>
-            <Button
-              variant={variant}
-              className="shrink-0"
-              onClick={() => start(type)}
-              disabled={!check.enough || busy}
-            >
-              {label}
-            </Button>
+            {!check.loading && !check.enough && (
+              <QuotaWarning maxItems={check.maxItems} onKeepFirst={keepFirst} disabled={busy} />
+            )}
           </div>
         ))}
       </div>
+      <SelectedList items={items} onRemove={(id) => onDeselect([id])} disabled={busy} />
       {error && <p className="mt-4 text-danger">{error}</p>}
     </Modal>
   )
