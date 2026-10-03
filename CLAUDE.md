@@ -14,9 +14,10 @@ YouTube "좋아요 한 동영상"과 재생목록을 한 화면에서 보고 일
 
 ## 개발 단계
 
-- **Phase 1 (현재):** 프론트엔드만 만든다. 백엔드 없이 mock 데이터로 모든 화면과 작업 흐름(선택 → 확인 → 작업 진행 → 결과)을 완성한다.
-- **Phase 2 (나중):** 백엔드(Python FastAPI + SQLite), Google OAuth, YouTube Data API를 붙인다.
-- Phase 1에서는 백엔드 코드, 실제 OAuth, 실제 API 호출을 만들지 않는다.
+- **Phase 1 (완료):** 프론트엔드와 mock 데이터로 모든 화면과 작업 흐름을 완성했다. 정리는 `docs/PHASE1_NOTES.md`.
+- **Phase 2 (현재):** 백엔드(Python FastAPI + SQLite), Google OAuth, YouTube Data API를 붙인다. 단계별 계획은 `docs/PHASE2_PLAN.md`.
+  - 순서: P2-1 기본 구조와 DB → P2-2 PoC → P2-3 로그인과 승인 → P2-4 조회 API → P2-5 작업 처리 → P2-6 프론트 교체 → P2-7 운영 마무리
+  - 화면 동작은 Phase 1 결과를 기준으로 하고, 바꿔야 하면 먼저 묻는다.
 
 ## 폴더 구조
 
@@ -26,14 +27,22 @@ frontend/   # Phase 1 — React 앱
   src/pages/      # 화면 단위
   src/components/ # 공통 부품
   src/state/      # 로그인 상태, 할당량 등 여러 화면이 함께 쓰는 상태
-backend/    # Phase 2 — FastAPI (지금은 만들지 않음, 구조는 아래 "백엔드 구조 원칙")
+backend/    # Phase 2 — FastAPI (구조는 아래 "백엔드 구조 원칙")
 docs/       # 기획서
 ```
 
-## 기술 스택 (frontend)
+## 기술 스택
 
-- React + Vite + TypeScript + Tailwind CSS + React Router
+- frontend: React + Vite + TypeScript + Tailwind CSS + React Router
+- backend: Python + uv, FastAPI, SQLAlchemy(async) + aiosqlite, alembic, httpx, aiosmtplib (DECISIONS.md 36–38)
+  - 승인된 라이브러리 목록은 DECISIONS.md 37번. 테스트는 pytest + pytest-asyncio + respx
 - 새 라이브러리를 추가해야 할 때는 이유를 먼저 설명하고 동의를 받는다.
+
+## 비밀값
+
+- `backend/.env`(Google 클라이언트 비밀번호, Gmail 앱 비밀번호, 토큰 암호화 키 등)와 DB 파일은 절대 git에 올리지 않는다. 예시는 `.env.example`에만 둔다.
+- 사용자에게 비밀값을 대화창에 붙여 넣으라고 하지 않는다. `.env` 파일에 직접 넣도록 안내한다.
+- 비밀값을 로그나 오류 메시지에 출력하지 않는다.
 
 ## 데이터 계층 (가장 중요한 구조 규칙)
 
@@ -44,6 +53,7 @@ docs/       # 기획서
 - services의 함수는 실제 API처럼 비동기(Promise)로 동작하고, 약간의 지연과 오류도 흉내 낼 수 있게 만든다.
 - 데이터 타입(영상, 재생목록, 작업, 할당량 등)은 한 곳에 정의하고, 기획서 9장 테이블 구조와 맞춘다.
 - Phase 2에서는 services 내부 구현만 실제 API 호출로 교체하고, 화면 코드는 바꾸지 않는 것이 목표다.
+- mock 구현은 지우지 않는다. 개발 중에만 설정 하나로 mock / 실제 API를 바꿀 수 있고, DEV 패널은 mock 모드에서만 보인다. 운영 결과물에는 mock과 DEV 패널이 들어가지 않는다(DECISIONS.md 47).
 
 ## 백엔드 구조 원칙 (Phase 2에서 적용)
 

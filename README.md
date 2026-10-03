@@ -85,4 +85,5 @@ http://localhost:5173
 | [docs/DECISIONS.md](docs/DECISIONS.md) | 기획서 이후 확정한 결정 (SPEC.md보다 우선) |
 | [docs/PHASE1_NOTES.md](docs/PHASE1_NOTES.md) | Phase 1 화면 흐름, 기획서와 달라진 점, 완료 기준 점검, Phase 2 주의 사항 |
 | [docs/TEST_SCENARIOS.md](docs/TEST_SCENARIOS.md) | 직접 클릭해 볼 테스트 시나리오 10개 |
+| [docs/PHASE2_PLAN.md](docs/PHASE2_PLAN.md) | Phase 2(백엔드, 실제 로그인/YouTube) 작업 계획과 직접 할 일 |
 | [CLAUDE.md](CLAUDE.md) | 개발 작업 규칙 |

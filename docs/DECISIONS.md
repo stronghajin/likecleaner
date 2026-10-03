@@ -74,3 +74,25 @@
 31. 확인 창에서 작업을 시작하면 선택이 모두 해제된다.
 32. Playlists 화면에서 다른 재생목록을 열면 선택이 해제된다. `Remove Duplicates` / `Remove Unavailable Videos`는 기존 선택을 지우고 찾은 항목으로 바꾼다.
 33. 썸네일은 120×90 해상도 이미지를 쓰되, 목록을 촘촘하게 보여주기 위해 화면에는 80×60으로 표시한다.
+
+## Phase 2 결정 (2026-10-03)
+
+34. 배포처는 P2-7 전에 정한다. P2-1~P2-6은 이 컴퓨터에서 개발한다.
+35. 운영할 때는 FastAPI가 빌드된 프론트엔드 파일도 함께 내보내, 화면과 API를 한 주소로 운영한다. 개발 중에는 Vite 프록시로 `/api`를 백엔드에 연결하므로, 브라우저 기준으로 주소는 `http://localhost:5173` 하나다.
+36. 파이썬 프로젝트와 버전 관리는 uv로 한다.
+37. 백엔드 라이브러리: `fastapi`, `uvicorn`, `pydantic-settings`, `sqlalchemy`, `aiosqlite`, `alembic`, `httpx`, `aiosmtplib`, `cryptography`, `itsdangerous`. 테스트용: `pytest`, `pytest-asyncio`, `respx`. 이 밖의 라이브러리는 먼저 묻는다.
+38. DB 구조 변경은 alembic 이력으로 관리한다.
+39. 사용자 승인은 터미널 명령으로 한다(예: `uv run python -m scripts.approve someone@gmail.com`). admin 화면은 만들지 않는다(기획서 12장).
+40. admin 알림 메일은 `ADMIN_EMAIL` 계정이 자기 자신에게 보낸다(`SMTP_USER` = `ADMIN_EMAIL`).
+41. 작업은 사용자마다 동시에 진행할 수 있다. 한 사용자의 작업 안에서는 항목을 한 개씩 순서대로 처리한다(기획서 8-1의 1인 1작업 유지).
+42. 기획서 9장 테이블에 아래 칸과 값을 추가한다. 새로운 종류의 개인정보는 없다.
+    - `jobs`: `target_playlist_title`, 작업을 멈춘 오류(`fatal_error_status`, `fatal_error_reason`, `fatal_error_message`), 429 대기 정보(`rate_limit_attempt`, `rate_limit_retry_at`)
+    - `jobs.status` 값: `running` / `completed` / `stopped`
+    - `job_items`: `playlist_item_id`, `error_reason`, 처리 순서(`position`)
+    - `job_items.status`에 `pending`(아직 처리 전) 추가
+43. PoC와 실제 동작 테스트에는 별도 테스트용 Google 계정을 쓴다. 기존 계정으로 할 때는 2~3개 소량으로만 한다.
+44. 로그인 유지 기간은 7일이다. 서버 재시작으로 메모리의 좋아요 목록이 사라지면 화면이 자동으로 다시 불러온다.
+45. 사용자가 Google 계정 설정에서 권한을 끊어 토큰 갱신이 실패하면(`invalid_grant`), 2단계(YouTube 권한) 로그인으로 다시 보낸다.
+46. YouTube 카테고리 이름은 `hl=en`, `regionCode=US`로 조회한다.
+47. mock 모드는 지우지 않고, 개발 중에만 설정 하나로 mock / 실제 API를 바꿀 수 있게 남긴다. DEV 패널은 mock 모드일 때만 보인다. 운영 결과물(build)에는 mock과 DEV 패널이 들어가지 않는다. (PHASE1_NOTES 4장의 "mock 삭제"를 대체)
+48. 실제 API를 쓸 때 진행 상황 조회 간격은 1.5초로 한다(mock은 0.7초 유지 가능).

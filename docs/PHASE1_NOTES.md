@@ -129,7 +129,7 @@ Phase 1(mock) 기준이다. "부분 충족"은 화면과 흐름은 완성됐지�
   - `Job.fatalError`
   - `JobItem.error`의 `{ status, reason, message }`
 - `signIn()`은 mock에서는 `Promise<User>`지만, 실제로는 Google 로그인 페이지로 이동하는 방식이다. services 쪽 구현과 로그인 화면의 처리를 함께 바꿔야 한다.
-- DEV 패널(`components/DevPanel.tsx`), `devTools`, `services/mock/` 폴더를 삭제한다. 브라우저에 남은 mock 저장값(`likecleaner.mock.*`)도 정리한다.
+- ~~DEV 패널, `devTools`, `services/mock/` 삭제~~ → DECISIONS.md 47로 변경: 개발 중 mock 모드로 남긴다. 운영 결과물에서만 빠진다.
 
 ### 할당량
 
