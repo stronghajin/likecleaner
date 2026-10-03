@@ -6,19 +6,10 @@ import type { LikeCleanerApi } from '../api'
 import { ApiError } from '../errors'
 import { isRetryable } from '../jobSummary'
 import { estimateUnits, maxAffordableItems, MAX_SELECTION, pagesFor, QUOTA_COST } from '../quotaEstimate'
-import type {
-  ApiErrorInfo,
-  CreateJobInput,
-  Job,
-  JobItem,
-  Playlist,
-  PlaylistItem,
-  User,
-  Video,
-} from '../types'
+import type { ApiErrorInfo, CreateJobInput, Job, JobItem, Playlist, PlaylistItem, User, Video } from '../types'
 import { avatarFor, generateAccount, thumbnailFor } from './data'
 import type { MockAccount, MockPlaylist, MockPlaylistItem } from './data'
-import { getDevSettings } from './devSettings'
+import { getDevSettings, setDevSettings } from './devSettings'
 import { load, save } from './storage'
 
 const STATE_KEY = 'likecleaner.mock.state.v1'
@@ -30,6 +21,10 @@ const ITEM_DELAY_MS = 350
 /** Chance that a write call fails in `some_failures` mode. */
 const FAILURE_CHANCE = 0.15
 const KEEP_JOBS = 20
+/** Waits before each automatic retry after a 429 (DECISIONS.md 28). */
+const RATE_LIMIT_BACKOFF_S = [2, 4, 8]
+/** Which item of a test job hits the 429, so some progress shows first. */
+const RATE_LIMIT_ITEM_INDEX = 2
 
 const MOCK_USER = {
   id: 'mock-user-1',
@@ -45,6 +40,8 @@ interface MockState {
   jobs: Job[]
   /** When the worker last processed an item; used to catch up after the tab was closed. */
   workerLastTick: number
+  /** Dev-panel 429 tests: per job, which item gets 429 and how many more times. */
+  rateLimitPlans?: Record<string, { itemIndex: number; failuresLeft: number }>
 }
 
 // ---------- errors ----------
@@ -66,6 +63,7 @@ const ERR = {
     message: 'The playlist item identified with the request cannot be found.',
   },
   backendError: { status: 500, reason: 'backendError', message: 'Backend Error' },
+  rateLimitExceeded: { status: 429, reason: 'rateLimitExceeded', message: 'Rate Limit Exceeded' },
   manualSortRequired: {
     status: 400,
     reason: 'manualSortRequired',
@@ -142,7 +140,7 @@ const persist = () => save(STATE_KEY, state)
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 const latency = (base = 250) => wait(base + Math.random() * 250)
-const clone = <T,>(value: T): T => structuredClone(value)
+const clone = <T>(value: T): T => structuredClone(value)
 
 function rolloverQuota() {
   const today = todayPacific()
@@ -256,19 +254,47 @@ function processNextItem() {
   const index = job.items.findIndex((i) => i.status === 'pending')
   if (index === -1) return finish(job, 'completed')
 
+  // Waiting out a 429 before the next automatic retry.
+  if (job.rateLimit && Date.now() < Date.parse(job.rateLimit.retryAt)) return
+
   if (getDevSettings().failureMode === 'quota_exceeded' && index >= Math.floor(job.items.length / 2)) {
     state.quota.used = DAILY_QUOTA
   }
 
-  const fatal = processItem(job, job.items[index])
+  const fatal = rateLimitedCall(job, index) ?? processItem(job, job.items[index])
+  if (fatal?.reason === 'rateLimitExceeded' && job.items[index].status === 'pending') {
+    // 429: retry the same item after 2 s, 4 s, 8 s; after the third retry fails, stop (DECISIONS.md 28).
+    const retriesDone = job.rateLimit?.attempt ?? 0
+    if (retriesDone < RATE_LIMIT_BACKOFF_S.length) {
+      job.rateLimit = {
+        attempt: retriesDone + 1,
+        retryAt: new Date(Date.now() + RATE_LIMIT_BACKOFF_S[retriesDone] * 1000).toISOString(),
+      }
+      return
+    }
+  }
+  if (job.items[index].status !== 'pending' || !fatal) delete job.rateLimit
+
   if (fatal) {
-    // quotaExceeded: stop and mark everything left as not processed (SPEC.md 8-3).
+    // quotaExceeded, or 429 after all retries: stop and mark everything left as not processed (SPEC.md 8-3).
+    delete job.rateLimit
     job.fatalError = fatal
     for (const item of job.items) if (item.status === 'pending') item.status = 'not_processed'
     finish(job, 'stopped')
   } else if (job.items.every((i) => i.status !== 'pending')) {
     finish(job, 'completed')
   }
+}
+
+/**
+ * Dev-panel 429 test: the planned item's first API call gets 429 (and still uses quota,
+ * like any failed call). Returns the 429, or null when this call goes through normally.
+ */
+function rateLimitedCall(job: Job, index: number): ApiErrorInfo | null {
+  const plan = state.rateLimitPlans?.[job.id]
+  if (!plan || plan.itemIndex !== index || plan.failuresLeft <= 0) return null
+  plan.failuresLeft -= 1
+  return callYouTube(QUOTA_COST.rate, ERR.rateLimitExceeded)
 }
 
 const removeLike = (videoId: string) => {
@@ -381,21 +407,17 @@ function buildItems(input: CreateJobInput): { items: JobItem[]; playlist?: MockP
     const items = [...new Set(input.playlistItemIds)].map((playlistItemId): JobItem => {
       const entry = playlist.items.find((i) => i.id === playlistItemId)
       if (!entry) throw new ApiError(ERR.playlistItemNotFound)
-      const title = entry.unavailable
-        ? unavailableTitle(entry.unavailable)
-        : state.account.videos[entry.videoId].title
+      const title = entry.unavailable ? unavailableTitle(entry.unavailable) : state.account.videos[entry.videoId].title
       return { videoId: entry.videoId, videoTitle: title, playlistItemId, status: 'pending' }
     })
     return { items, playlist }
   }
   const playlist = input.type === 'remove_like' ? undefined : findPlaylist(input.targetPlaylistId)
-  const items = [...new Set(input.videoIds)].map(
-    (videoId): JobItem => ({
-      videoId,
-      videoTitle: state.account.videos[videoId]?.title ?? videoId,
-      status: 'pending',
-    }),
-  )
+  const items = [...new Set(input.videoIds)].map((videoId): JobItem => ({
+    videoId,
+    videoTitle: state.account.videos[videoId]?.title ?? videoId,
+    status: 'pending',
+  }))
   return { items, playlist }
 }
 
@@ -442,9 +464,7 @@ export const mockApi: LikeCleanerApi = {
     requireApproved()
     chargeOrThrow(pagesFor(state.account.playlists.length) * QUOTA_COST.listPage)
     persist()
-    return state.account.playlists.map(
-      (p): Playlist => ({ id: p.id, title: p.title, itemCount: p.items.length }),
-    )
+    return state.account.playlists.map((p): Playlist => ({ id: p.id, title: p.title, itemCount: p.items.length }))
   },
 
   async getPlaylistItems(playlistId) {
@@ -489,6 +509,19 @@ export const mockApi: LikeCleanerApi = {
       items,
     }
     state.jobs = [...state.jobs, job].slice(-KEEP_JOBS)
+
+    // Dev panel "Next action": 429 test for this job only (DECISIONS.md 28).
+    const { nextAction } = getDevSettings()
+    if (nextAction !== 'none') {
+      state.rateLimitPlans = {
+        [job.id]: {
+          itemIndex: Math.min(RATE_LIMIT_ITEM_INDEX, items.length - 1),
+          // recovers: fails on the first try and the first retry, then the second retry succeeds.
+          failuresLeft: nextAction === 'rate_limit_recovers' ? 2 : RATE_LIMIT_BACKOFF_S.length + 1,
+        },
+      }
+      setDevSettings({ nextAction: 'none' })
+    }
     state.workerLastTick = Date.now()
     persist()
     scheduleWorker()

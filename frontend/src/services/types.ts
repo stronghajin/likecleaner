@@ -99,6 +99,13 @@ export interface Job {
   items: JobItem[]
   /** The error that stopped the job (shown as a popup). */
   fatalError?: ApiErrorInfo
+  /** Set while waiting to retry after a 429 rateLimitExceeded (DECISIONS.md 28). */
+  rateLimit?: {
+    /** Which retry comes next: 1, 2 or 3. */
+    attempt: number
+    /** When the retry happens (ISO string). */
+    retryAt: string
+  }
 }
 
 export type CreateJobInput =

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { api, devTools } from '../services'
-import type { DevSettings, FailureMode, UserStatus } from '../services'
+import type { DevSettings, FailureMode, NextAction, UserStatus } from '../services'
 import { useQuota } from '../state/quota'
 import { useSession } from '../state/session'
 import { formatNumber } from '../utils/format'
@@ -20,6 +20,12 @@ const FAILURE_OPTIONS: { value: FailureMode; label: string }[] = [
   { value: 'none', label: 'None' },
   { value: 'some_failures', label: 'Some items fail' },
   { value: 'quota_exceeded', label: 'Quota runs out' },
+]
+
+const NEXT_ACTION_OPTIONS: { value: NextAction; label: string }[] = [
+  { value: 'none', label: 'None' },
+  { value: 'rate_limit_recovers', label: '429 (recovers after retry)' },
+  { value: 'rate_limit_persists', label: '429 (keeps failing)' },
 ]
 
 function Segmented<T extends string>(props: {
@@ -59,6 +65,12 @@ export default function DevPanel() {
   useEffect(() => {
     if (open) loadQuota()
   }, [open])
+
+  const toggle = () => {
+    // "Next action" resets itself once a job uses it, so re-read the settings when opening.
+    if (!open) setSettings(devTools.getDevSettings())
+    setOpen(!open)
+  }
 
   // Clicking anywhere outside the panel (and its DEV button) closes it.
   useEffect(() => {
@@ -116,6 +128,16 @@ export default function DevPanel() {
                 onChange={(failureMode) => setSettings(devTools.setDevSettings({ failureMode }))}
               />
             </div>
+            <div className="flex flex-col gap-2">
+              <span className={labelClass}>
+                Next action <span className="font-normal text-muted">(applies to the next job only)</span>
+              </span>
+              <Segmented
+                options={NEXT_ACTION_OPTIONS}
+                value={settings.nextAction}
+                onChange={(nextAction) => setSettings(devTools.setDevSettings({ nextAction }))}
+              />
+            </div>
             <div className={rowClass}>
               <span className={labelClass}>
                 Quota left{' '}
@@ -149,7 +171,7 @@ export default function DevPanel() {
       )}
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggle}
         aria-expanded={open}
         className={`rounded-sm border px-2.5 py-1 text-[11px] font-bold tracking-wider ${
           open ? 'bg-accent text-bg' : 'bg-panel text-muted hover:border-muted hover:text-text'

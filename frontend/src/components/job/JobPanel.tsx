@@ -9,6 +9,22 @@ import Button from '../Button'
 import Modal from '../Modal'
 import { formatApiError, jobTitle } from './jobText'
 
+/** "Rate limited. Retrying in N s..." while the job waits after a 429 (DECISIONS.md 28). */
+function RetryCountdown({ retryAt }: { retryAt: string }) {
+  // Mounted fresh for each wait (keyed by retryAt), so the clock never starts out of date.
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 250)
+    return () => clearInterval(timer)
+  }, [])
+  const seconds = Math.max(1, Math.ceil((Date.parse(retryAt) - now) / 1000))
+  return (
+    <p role="status" className="mt-2 text-danger tabular-nums">
+      Rate limited. Retrying in {seconds} s...
+    </p>
+  )
+}
+
 // Progress panel, bottom right (SPEC.md 8-2, DECISIONS.md 11): progress, counts, failed items, Retry Failed.
 // Also shows the popup for an error that stopped the job (SPEC.md 8-3).
 export default function JobPanel() {
@@ -17,6 +33,7 @@ export default function JobPanel() {
   const [retrying, setRetrying] = useState(false)
   const [retryError, setRetryError] = useState('')
   const panelRef = useRef<HTMLElement>(null)
+  const retryAt = running ? job?.rateLimit?.retryAt : undefined
   const closeOnOutsideClick = panelOpen && !!job && !running
 
   // Once the job has ended, a click outside the panel closes it (DECISIONS.md 27).
@@ -116,6 +133,7 @@ export default function JobPanel() {
           <div className="mt-2 h-1.5 bg-border">
             <div className="h-full bg-accent transition-[width] duration-300" style={{ width: `${percent}%` }} />
           </div>
+          {retryAt && <RetryCountdown key={retryAt} retryAt={retryAt} />}
 
           <div className="mt-4 flex gap-2">
             {stat('Success', counts.success, 'text-success')}

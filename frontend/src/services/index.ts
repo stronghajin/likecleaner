@@ -6,9 +6,9 @@ import { mockApi, resetMockData, setQuotaLeft } from './mock/mockApi'
 
 export const api: LikeCleanerApi = mockApi
 
-/** Phase 1 only: switches for the dev panel on the sign-in screen (DECISIONS.md 14). */
+/** Phase 1 only: switches for the DEV panel (DECISIONS.md 14, 28). */
 export const devTools = { getDevSettings, setDevSettings, resetMockData, setQuotaLeft }
-export type { DevSettings, FailureMode } from './mock/devSettings'
+export type { DevSettings, FailureMode, NextAction } from './mock/devSettings'
 
 export type { LikeCleanerApi } from './api'
 export { ApiError } from './errors'
