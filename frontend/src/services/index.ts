@@ -1,12 +1,18 @@
-// The only door between screens and data. Screens import from 'services', never from 'services/mock'.
-// Phase 2: replace `mockApi` with the real backend implementation and delete `devTools`.
+// The only door between screens and data. Screens import from 'services', never from 'services/mock' or 'services/real'.
 import type { LikeCleanerApi } from './api'
 import { getDevSettings, setDevSettings } from './mock/devSettings'
 import { mockApi, resetMockData, setQuotaLeft } from './mock/mockApi'
+import { realApi } from './real/realApi'
 
-export const api: LikeCleanerApi = mockApi
+/**
+ * Mock or real backend (DECISIONS.md 47). `npm run dev` = mock, `npm run dev:real` = real.
+ * Production builds always use the real backend.
+ */
+export const isMockMode = import.meta.env.DEV && import.meta.env.VITE_API_MODE !== 'real'
 
-/** Phase 1 only: switches for the DEV panel (DECISIONS.md 14, 28). */
+export const api: LikeCleanerApi = isMockMode ? mockApi : realApi
+
+/** Mock mode only: switches for the DEV panel (DECISIONS.md 14, 28, 47). */
 export const devTools = { getDevSettings, setDevSettings, resetMockData, setQuotaLeft }
 export type { DevSettings, FailureMode, NextAction } from './mock/devSettings'
 

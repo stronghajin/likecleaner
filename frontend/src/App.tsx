@@ -8,6 +8,7 @@ import LandingPage from './pages/LandingPage'
 import LikedVideosPage from './pages/LikedVideosPage'
 import PlaylistsPage from './pages/PlaylistsPage'
 import PrivacyPage from './pages/PrivacyPage'
+import { isMockMode } from './services'
 import type { UserStatus } from './services'
 import { JobProvider } from './state/job'
 import { LikedVideosProvider } from './state/likedVideos'
@@ -15,8 +16,8 @@ import { PlaylistsProvider } from './state/playlists'
 import { QuotaProvider } from './state/quota'
 import { HOME_FOR_STATUS, SessionProvider, useSession } from './state/session'
 
-// Phase 1 dev panel: only `npm run dev` loads it, so production builds leave it out entirely.
-const DevPanel = import.meta.env.DEV ? lazy(() => import('./components/DevPanel')) : null
+// Dev panel: only in mock mode (DECISIONS.md 47), so production builds leave it out entirely.
+const DevPanel = isMockMode ? lazy(() => import('./components/DevPanel')) : null
 
 /** Signed-out users only; signed-in users go to the screen for their status. */
 function SignedOutOnly() {

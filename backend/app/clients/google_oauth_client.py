@@ -32,8 +32,12 @@ class GoogleOAuthClient:
         state: str,
         offline: bool = False,
         login_hint: str | None = None,
+        choose_account: bool = False,
     ) -> str:
-        """Where to send the browser. `offline=True` asks for a refresh token (step 2 of SPEC.md 3-2)."""
+        """Where to send the browser. `offline=True` asks for a refresh token (step 2 of SPEC.md 3-2).
+
+        `choose_account=True` always shows Google's account chooser (DECISIONS.md 56).
+        """
         params = {
             "client_id": self._client_id,
             "redirect_uri": redirect_uri,
@@ -47,6 +51,8 @@ class GoogleOAuthClient:
             params["access_type"] = "offline"
             # Google only returns a refresh token when the consent screen is shown.
             params["prompt"] = "consent"
+        elif choose_account:
+            params["prompt"] = "select_account"
         if login_hint:
             params["login_hint"] = login_hint
         return f"{AUTH_URL}?{urlencode(params)}"

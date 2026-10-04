@@ -17,6 +17,8 @@ from cryptography.fernet import Fernet  # noqa: E402
 os.environ["TOKEN_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
 os.environ["GOOGLE_CLIENT_SECRET"] = "test-client-secret"
 os.environ["SMTP_APP_PASSWORD"] = "test-app-password"
+os.environ["SESSION_SECRET"] = "test-session-secret"
+os.environ["APP_BASE_URL"] = "http://localhost:5173"
 
 import httpx  # noqa: E402
 

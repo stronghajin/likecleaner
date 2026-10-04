@@ -37,6 +37,13 @@ class Settings(BaseSettings):
 
     database_url: str = f"sqlite+aiosqlite:///{BACKEND_DIR / 'data' / 'likecleaner.db'}"
 
+    # Address people open in the browser. Google's redirect URI is built from it (DECISIONS.md 57).
+    app_base_url: str = "http://localhost:5173"
+
+    @property
+    def google_redirect_uri(self) -> str:
+        return f"{self.app_base_url.rstrip('/')}/api/auth/google/callback"
+
 
 @lru_cache
 def get_settings() -> Settings:

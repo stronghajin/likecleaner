@@ -126,3 +126,13 @@
     - Pending Approval 화면과 admin 알림 메일 기능을 없앤다. SMTP 관련 환경 변수(`SMTP_USER`, `SMTP_APP_PASSWORD`)와, 메일에만 쓰던 백엔드의 `ADMIN_EMAIL`은 현재 쓰지 않는다. 메일 발송 client(`clients/mail_client.py`)는 나중을 위해 지우지 않고 쓰지 않는 상태로 둔다.
     - Access Denied 화면 문구: `This Google account ({email}) doesn't have access to LikeCleaner. Please contact the admin.` 로그인한 이메일을 보여주고 `Sign in with a different account` 버튼을 둔다. 이 버튼은 로그아웃한 뒤 Google 로그인을 다시 시작한다. 다른 계정을 고를 수 있도록 Google 로그인은 항상 계정 선택 화면을 보여준다.
     - Acceptance Criteria(13장 "로그인과 승인")는 다음으로 바꾼다: 등록되지 않았거나 `disabled`인 사용자는 로그인 후 Access Denied 화면에서 자기 이메일을 본다. `active`인 사용자만 좋아요 목록과 재생목록을 볼 수 있다.
+
+## P2-3 로그인 세부 사항 (2026-10-04)
+
+57. 로그인 구현 세부 사항
+    - YouTube 권한(2단계)은 **처음 한 번만** 요청한다. YouTube 권한이 포함된 refresh token이 저장돼 있으면 다음 로그인부터는 1단계 뒤 바로 메인 화면으로 간다. 토큰이 끊기면(`invalid_grant`) 토큰을 지우고 403 `youtubeReauthRequired`를 준다. 다음 로그인 때 2단계를 다시 거친다(DECISIONS 45).
+    - 2단계에서 YouTube 권한을 거부하거나 취소하면 로그인 화면으로 돌아가 빨간 글씨로 `LikeCleaner needs access to your YouTube account. Please sign in again and allow access.`를 보여준다(기획서에 없던 문구).
+    - 로그인 세션은 서명된 쿠키(`lc_session`, 7일, HttpOnly, SameSite=Lax, https 주소에서는 Secure)로 관리한다. 쿠키에는 사용자 번호, Access Denied 화면용 이메일·이름·사진, 로그인 진행 확인값(state)만 넣고 토큰은 넣지 않는다. 사용자 상태는 매 요청마다 DB에서 다시 확인하므로, `disabled`로 바꾸면 바로 막힌다.
+    - 환경 변수 `APP_BASE_URL`(비우면 `http://localhost:5173`)을 더한다. Google 리디렉션 주소는 이 값에 `/api/auth/google/callback`을 붙여 만든다. 운영 주소는 P2-7에서 넣는다.
+    - P2-3에서는 화면 중 로그인 부분만 실제 백엔드에 연결한다(`npm run dev:real`). 나머지는 P2-4 전까지 `notAvailableYet` 오류로 보인다. `npm run dev`는 mock 그대로다.
+    - Access Denied를 본 사람이 나중에 등록되면, 다음 화면 갱신 때 로그인 화면으로 돌아간다. 다시 로그인하면 들어갈 수 있다.

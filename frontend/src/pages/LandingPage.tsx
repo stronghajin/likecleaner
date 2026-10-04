@@ -1,16 +1,22 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router'
+import { Link, useNavigate, useSearchParams } from 'react-router'
 import Button from '../components/Button'
 import CenteredCard from '../components/CenteredCard'
 import Logo from '../components/Logo'
 import { EXTERNAL_LINKS } from '../config'
 import { HOME_FOR_STATUS, useSession } from '../state/session'
 
+// Sent back by the server when the YouTube permission was refused on Google's page (DECISIONS.md 57).
+const SIGNIN_ERRORS: Record<string, string> = {
+  youtube_permission: 'LikeCleaner needs access to your YouTube account. Please sign in again and allow access.',
+}
+
 export default function LandingPage() {
   const { signIn } = useSession()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError] = useState(() => SIGNIN_ERRORS[searchParams.get('signin_error') ?? ''] ?? '')
 
   const handleSignIn = async () => {
     setBusy(true)

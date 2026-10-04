@@ -11,7 +11,7 @@
 |---|---|---|---|
 | **P2-1 기본 구조와 DB** | `backend/` uv 프로젝트, 설정(`.env`) 읽기, 비동기 DB 연결, 테이블(기획서 9장 + DECISIONS 42), alembic 첫 이력, 공통 오류 응답 `{status, reason, message}`, `/api/health`, 테스트 틀 | 서버가 켜지고 `/api/health` 응답, DB 파일 생성, 테스트 통과 | A |
 | **P2-2 PoC 검증** (완료, `POC_RESULTS.md`) | 기획서 14장 5가지를 실제 계정으로 확인. `clients` 계층(Google 로그인, YouTube, 메일)을 먼저 만들어 그것으로 검증. 결과는 `docs/POC_RESULTS.md`, 설계 변경은 DECISIONS.md에 기록 | 5가지 결과 기록. 특히 삭제/비공개 영상 판정 방법, `position=0` 오류 여부. 14장 2번은 테스트 상태로 확인하고, In production 확인은 P2-7(DECISIONS 51) | B, C, D, 브라우저 로그인 |
-| **P2-3 로그인과 승인** | 2단계 Google 로그인(기본 정보 → 승인자만 YouTube 권한, 기획서 3-2), 신규 `pending` 등록, admin 메일 1회(KST, DECISIONS 40), 7일 세션 쿠키(44), `/api/me`, 로그아웃, refresh token 암호화 저장과 갱신, 권한 끊김 시 재동의(45), 승인 명령(39) | 새 계정 로그인 → Pending + 메일 도착 → 승인 명령 → 재로그인 시 YouTube 권한 화면 → 진입 | E, 두 번째 계정으로 확인 |
+| **P2-3 로그인과 사용자 관리** | 2단계 Google 로그인(기본 정보 → `active`만 YouTube 권한, 처음 한 번, DECISIONS 56·57), 7일 세션 쿠키(44), `/api/me`, 로그아웃, refresh token 암호화 저장과 갱신, 권한 끊김 시 재동의(45), `active` 검사, 사용자 관리 명령(`scripts/users.py`), 화면은 로그인만 실제 연결(`npm run dev:real`) | 등록 안 됨 → Access Denied(내 이메일) → `add` → YouTube 권한 → 메인 화면 → `disable` → Access Denied → `enable` | E, 내 계정으로 확인 |
 | **P2-4 조회 API** | `GET /api/likes`(끝 페이지까지, 최근 약 1,000개 DECISIONS 52 + 카테고리 이름, 서버 메모리 보관, DECISIONS 46), `/api/playlists`, `/api/playlists/{id}/items`(+ `videos.list`, DECISIONS 6), `/api/quota`(태평양 시간 하루). 실패 호출을 포함한 모든 호출의 units 기록 | 실제 계정의 좋아요와 재생목록 수가 YouTube와 같고, 할당량이 실제 호출량과 맞음 | 화면 숫자 비교 |
 | **P2-5 작업 처리** | `POST /api/jobs`(1인 1작업, 100개, 할당량 예상 검사, DECISIONS 30), 워커(사용자별 동시 진행, 항목은 순차, DECISIONS 41). 처리 규칙은 아래 참고 | 자동 테스트로 규칙 확인 + 실제 계정에서 2~3개 소량 실행 | 테스트 계정 확인 |
 | **P2-6 프론트엔드 교체** | services에 실제 API 구현 추가, 설정 하나로 mock / 실제 전환(DECISIONS 47), `signIn`을 Google 페이지 이동으로, Vite 프록시(DECISIONS 35), 로그인 만료 시 로그인 화면, 조회 간격 1.5초(48) | `TEST_SCENARIOS.md` 중 실제 계정으로 가능한 것이 그대로 동작 | 화면 확인 |
@@ -42,7 +42,7 @@ backend/
 │  ├─ main.py                   # 앱 시작점, 시작 시 워커 실행
 │  ├─ core/        config.py · db.py · security.py · errors.py · time.py
 │  ├─ api/         deps.py · auth.py · me.py · quota.py · likes.py · playlists.py · jobs.py · health.py
-│  ├─ services/    auth_service · user_service · notification_service · quota_service
+│  ├─ services/    auth_service · user_service · quota_service
 │  │               likes_service · playlist_service · job_service · job_processor
 │  ├─ repositories/ user_repository · token_repository · quota_repository · job_repository
 │  ├─ clients/     google_oauth_client · youtube_client · mail_client   (httpx / aiosmtplib)
@@ -50,7 +50,7 @@ backend/
 │  ├─ models/      user · oauth_token · quota_usage · job
 │  └─ workers/     job_worker · cleanup_worker   (services만 호출)
 ├─ scripts/
-│  ├─ approve.py                # 사용자 승인/거절 명령 (DECISIONS 39)
+│  ├─ users.py                  # 사용자 관리 명령: add / disable / enable / list (DECISIONS 56)
 │  └─ poc/                      # P2-2 검증 스크립트
 └─ tests/                       # pytest + respx
 ```
@@ -111,7 +111,7 @@ backend/
 | B | Google Cloud 설정 | P2-2 전 |
 | C | 테스트용 YouTube 계정 준비 | P2-2 전 |
 | D | Gmail 앱 비밀번호 발급 | P2-2 전 |
-| E | 사용자 승인 명령 사용 | P2-3 |
+| E | 사용자 관리 명령 사용 | P2-3 |
 | F | 운영 주소용 Google 설정 | P2-7 |
 
 ### A. uv 설치
@@ -153,9 +153,9 @@ backend/
 3. 앱 이름 `LikeCleaner` → **만들기**
 4. 16자리 비밀번호를 `backend/.env`의 `SMTP_APP_PASSWORD`에 바로 붙여 넣는다(다시 볼 수 없음).
 
-### E. 사용자 승인 (DECISIONS 39)
+### E. 사용자 관리 (DECISIONS 56)
 
-P2-3에서 명령을 만든 뒤 사용법을 안내한다.
+README의 "사용자 관리하기"를 따른다. 테스트 상태 동안에는 Google Cloud 테스트 사용자에도 같은 이메일을 넣는다(DECISIONS 51).
 
 ### F. 운영 주소용 Google 설정
 

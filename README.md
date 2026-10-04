@@ -140,9 +140,69 @@ uv run uvicorn app.main:app --reload --port 8000
 | `ValidationError` 또는 `.env` 관련 오류 | `backend/.env`의 값 형식이 틀렸습니다. `.env.example`의 설명과 비교해 보세요. 숫자 칸(`DAILY_QUOTA`)에 글자가 들어가지 않았는지 확인하세요 |
 | `ModuleNotFoundError` | 5번(`uv sync`)을 다시 실행하세요 |
 
+## 사용자 관리하기 (누가 LikeCleaner를 쓸 수 있는지)
+
+LikeCleaner는 admin이 **미리 등록한 이메일만** 쓸 수 있습니다(DECISIONS 56). 등록되지 않았거나 막힌(disabled) 이메일로 로그인하면 "Access Denied" 화면이 나옵니다. 등록은 터미널에서 명령으로 합니다. 서버가 켜져 있든 꺼져 있든 상관없습니다.
+
+먼저 새 터미널을 열고 백엔드 폴더로 이동합니다.
+
+```
+cd ~/Desktop/likecleaner/backend
+```
+
+| 하고 싶은 일 | 명령 |
+|---|---|
+| 이메일 등록 (바로 사용 가능) | `uv run python -m scripts.users add someone@gmail.com` |
+| 사용 막기 | `uv run python -m scripts.users disable someone@gmail.com` |
+| 다시 허용하기 | `uv run python -m scripts.users enable someone@gmail.com` |
+| 등록된 사람 목록 보기 | `uv run python -m scripts.users list` |
+
+- `someone@gmail.com` 자리에 실제 이메일을 넣으세요. 대문자와 소문자는 구분하지 않습니다.
+- 막으면 그 사람이 로그인해 있어도 다음 화면 이동 때 바로 Access Denied가 됩니다.
+
+성공하면 이런 글이 나옵니다.
+
+```
+Added someone@gmail.com (active). They can sign in now.
+```
+
+`list`는 한 사람당 한 줄로 이렇게 보여줍니다. 순서대로 이메일, 상태(`active` 사용 가능 / `disabled` 막힘), 로그인한 적이 있는지, YouTube 권한이 저장됐는지, 등록한 날짜입니다.
+
+```
+someone@gmail.com                        active    signed in before  YouTube connected      added 2026-10-04 19:10 KST
+```
+
+| 이런 글이 나오면 | 뜻 |
+|---|---|
+| `Error: someone@gmail.com is already registered.` | 이미 등록된 이메일입니다. `list`로 상태를 확인하세요 |
+| `Error: someone@gmail.com is not registered.` | 등록된 적 없는 이메일입니다. 먼저 `add` 하세요 |
+| `Error: '...' is not an email address.` | 이메일 형식이 아닙니다. 오타를 확인하세요 |
+
+> 개발 중(테스트 상태, DECISIONS 51)에는 Google Cloud의 **대상 → 테스트 사용자**에도 그 이메일이 있어야 Google 로그인이 됩니다.
+
+## 실제 로그인으로 실행하기 (Phase 2 개발 중)
+
+`npm run dev`는 가짜 데이터(mock)로 돌아갑니다. 진짜 Google 로그인으로 보려면 **터미널 두 개**를 씁니다.
+
+1. 첫 번째 터미널: 위 "백엔드 서버 실행하기"의 7번처럼 백엔드를 켭니다.
+   ```
+   cd ~/Desktop/likecleaner/backend
+   uv run uvicorn app.main:app --reload --port 8000
+   ```
+2. 두 번째 터미널(VS Code 터미널 오른쪽 위 `+`): 화면을 실제 모드로 켭니다.
+   ```
+   cd ~/Desktop/likecleaner/frontend
+   npm run dev:real
+   ```
+3. 브라우저에서 http://localhost:5173 을 엽니다. 실제 모드에서는 오른쪽 아래 **DEV** 버튼이 보이지 않습니다.
+
+- 지금(P2-3)은 로그인, 로그아웃, Access Denied까지만 실제로 연결돼 있습니다. 메인 화면의 좋아요 목록과 재생목록은 다음 단계(P2-4) 전까지 `not connected to the server yet` 오류로 나옵니다.
+- 반드시 **5173 주소**로 들어가세요. Google 로그인이 이 주소로 돌아오도록 등록돼 있습니다.
+- 끌 때는 두 터미널에서 각각 `Ctrl` + `C`를 누릅니다.
+
 ## 앱 안에서 테스트하기
 
-- 화면 오른쪽 아래의 **DEV** 버튼으로 개발용 패널을 열 수 있습니다. 승인 상태, 오류 상황, 남은 할당량을 바꿔 가며 테스트할 수 있습니다.
+- `npm run dev`(mock 모드)에서는 화면 오른쪽 아래의 **DEV** 버튼으로 개발용 패널을 열 수 있습니다. 사용자 상태, 오류 상황, 남은 할당량을 바꿔 가며 테스트할 수 있습니다.
 - 클릭해 볼 시나리오 10개는 [docs/TEST_SCENARIOS.md](docs/TEST_SCENARIOS.md)에 있습니다.
 - 처음 상태로 되돌리려면 DEV 패널의 **Reset mock data**를 누르세요.
 
