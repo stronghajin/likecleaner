@@ -15,10 +15,10 @@ interface QuotaState {
 
 const QuotaContext = createContext<QuotaState | null>(null)
 
-/** Reads the quota only while an approved user is signed in. */
+/** Reads the quota only while an active user is signed in. */
 export function QuotaProvider({ children }: { children: ReactNode }) {
   const { user } = useSession()
-  const active = user?.status === 'approved'
+  const active = user?.status === 'active'
   const [quota, setQuota] = useState<Quota | null>(null)
 
   const refreshQuota = useCallback(() => {

@@ -11,9 +11,9 @@ import Button from './Button'
 // Loaded only by `npm run dev`; never part of a production build. Delete in Phase 2.
 
 const STATUS_OPTIONS: { value: UserStatus; label: string }[] = [
-  { value: 'approved', label: 'Approved' },
-  { value: 'pending', label: 'Pending' },
-  { value: 'rejected', label: 'Rejected' },
+  { value: 'active', label: 'Active' },
+  { value: 'disabled', label: 'Disabled' },
+  { value: 'not_registered', label: 'Not registered' },
 ]
 
 const FAILURE_OPTIONS: { value: FailureMode; label: string }[] = [
@@ -117,7 +117,7 @@ export default function DevPanel() {
           <h2 className="text-xs font-bold tracking-wider text-muted uppercase">Developer tools (mock only)</h2>
           <div className="mt-4 flex flex-col gap-3">
             <div className={rowClass}>
-              <span className={labelClass}>Approval status</span>
+              <span className={labelClass}>User status</span>
               <Segmented options={STATUS_OPTIONS} value={settings.userStatus} onChange={changeStatus} />
             </div>
             <div className={rowClass}>

@@ -10,14 +10,14 @@ import type { CreateJobInput, Job, Playlist, PlaylistItem, Quota, User, Video } 
  */
 export interface LikeCleanerApi {
   /**
-   * Signed-in user (with approval status), or null when signed out.
+   * Signed-in user (with status, DECISIONS.md 56), or null when signed out.
    * Phase 2: GET /api/me → no YouTube call (session + `users` table) → 0 units.
    */
   getCurrentUser(): Promise<User | null>
 
   /**
    * Phase 2: GET /api/auth/google/login → Google OAuth step 1 (`openid email profile`), then for
-   * approved users GET /api/auth/google/youtube → step 2 (`youtube` scope, access_type=offline)
+   * active users GET /api/auth/google/youtube → step 2 (`youtube` scope, access_type=offline)
    * (SPEC.md 3-2) → 0 units. In Phase 2 this becomes a full-page redirect, not a Promise<User>.
    */
   signIn(): Promise<User>

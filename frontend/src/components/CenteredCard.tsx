@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import Footer from './Footer'
 
-// Full-screen frame for the screens shown before the main app (sign-in, pending, denied).
+// Full-screen frame for the screens shown before the main app (sign-in, access denied).
 export default function CenteredCard({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col">

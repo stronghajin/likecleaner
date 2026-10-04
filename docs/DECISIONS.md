@@ -82,8 +82,8 @@
 36. 파이썬 프로젝트와 버전 관리는 uv로 한다.
 37. 백엔드 라이브러리: `fastapi`, `uvicorn`, `pydantic-settings`, `sqlalchemy`, `aiosqlite`, `alembic`, `httpx`, `aiosmtplib`, `cryptography`, `itsdangerous`. 테스트용: `pytest`, `pytest-asyncio`, `respx`. 이 밖의 라이브러리는 먼저 묻는다.
 38. DB 구조 변경은 alembic 이력으로 관리한다.
-39. 사용자 승인은 터미널 명령으로 한다(예: `uv run python -m scripts.approve someone@gmail.com`). admin 화면은 만들지 않는다(기획서 12장).
-40. admin 알림 메일은 `ADMIN_EMAIL` 계정이 자기 자신에게 보낸다(`SMTP_USER` = `ADMIN_EMAIL`).
+39. (56으로 대체) 사용자 승인은 터미널 명령으로 한다(예: `uv run python -m scripts.approve someone@gmail.com`). admin 화면은 만들지 않는다(기획서 12장).
+40. (56으로 대체, 현재 미사용) admin 알림 메일은 `ADMIN_EMAIL` 계정이 자기 자신에게 보낸다(`SMTP_USER` = `ADMIN_EMAIL`).
 41. 작업은 사용자마다 동시에 진행할 수 있다. 한 사용자의 작업 안에서는 항목을 한 개씩 순서대로 처리한다(기획서 8-1의 1인 1작업 유지).
 42. 기획서 9장 테이블에 아래 칸과 값을 추가한다. 새로운 종류의 개인정보는 없다.
     - `jobs`: `target_playlist_title`, 작업을 멈춘 오류(`fatal_error_status`, `fatal_error_reason`, `fatal_error_message`), 429 대기 정보(`rate_limit_attempt`, `rate_limit_retry_at`)
@@ -116,3 +116,13 @@
 53. 재생목록 항목의 상태 판정(`VideoAvailability`): `videoOwnerChannelTitle`이 없으면 볼 수 없는 영상이다. 그중 `status.privacyStatus`가 `private`이면 `private`, 그 밖에는 `deleted`로 본다. 나머지는 `available`이다. 자기 비공개 영상은 채널 이름이 있으므로 `available`이 된다.
 54. 자동 정렬 재생목록에서도 `position=0` 추가가 오류 없이 됐다(`manualSortRequired`가 나지 않음). 그래도 기획서 6장의 "위치 없이 다시 추가" 처리와 DECISIONS 30의 예상 소모량 50 units 추가는 혹시 모를 경우를 위해 그대로 둔다.
 55. 재생목록 추가·삭제는 몇 초(PoC: 약 5초) 뒤에야 조회에 반영된다. 작업이 끝난 직후 재생목록을 다시 불러오면 이전 상태가 보일 수 있다. 처리 방법은 P2-5/P2-6에서 정하되, 화면 동작이 바뀌면 먼저 묻는다.
+
+## 승인 흐름 단순화: 허용 목록 방식 (2026-10-04)
+
+56. 회원가입이 없으므로 승인 대기(pending)와 알림 메일을 없애고, **admin이 미리 등록한 이메일만 쓸 수 있는 허용 목록 방식**으로 바꾼다. 기획서 3-3, 5장 화면 목록, 9장 `users` 테이블, 13장 Acceptance Criteria의 관련 내용은 이 결정으로 대체된다. DECISIONS 39, 40도 대체한다.
+    - 사용자는 admin이 DB에 이메일을 미리 등록해야 쓸 수 있다. 등록은 터미널의 사용자 관리 명령으로 한다(admin 화면은 만들지 않는다, 기획서 12장). 등록되지 않은 이메일로 로그인하면 **Access Denied** 화면을 보여준다.
+    - `users.status`는 `active` / `disabled` 두 가지만 쓴다. `pending`, `rejected`는 없앤다. `active`인 사용자만 2단계(YouTube 권한)로 가고 YouTube 관련 API를 쓸 수 있다. `disabled`도 Access Denied 화면을 본다.
+    - 화면과 API(`User.status`)에서는 등록되지 않은 경우를 `not_registered`로 나타낸다. DB에는 저장하지 않는다.
+    - Pending Approval 화면과 admin 알림 메일 기능을 없앤다. SMTP 관련 환경 변수(`SMTP_USER`, `SMTP_APP_PASSWORD`)와, 메일에만 쓰던 백엔드의 `ADMIN_EMAIL`은 현재 쓰지 않는다. 메일 발송 client(`clients/mail_client.py`)는 나중을 위해 지우지 않고 쓰지 않는 상태로 둔다.
+    - Access Denied 화면 문구: `This Google account ({email}) doesn't have access to LikeCleaner. Please contact the admin.` 로그인한 이메일을 보여주고 `Sign in with a different account` 버튼을 둔다. 이 버튼은 로그아웃한 뒤 Google 로그인을 다시 시작한다. 다른 계정을 고를 수 있도록 Google 로그인은 항상 계정 선택 화면을 보여준다.
+    - Acceptance Criteria(13장 "로그인과 승인")는 다음으로 바꾼다: 등록되지 않았거나 `disabled`인 사용자는 로그인 후 Access Denied 화면에서 자기 이메일을 본다. `active`인 사용자만 좋아요 목록과 재생목록을 볼 수 있다.

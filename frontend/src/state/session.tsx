@@ -8,17 +8,17 @@ interface Session {
   user: User | null | undefined
   signIn: () => Promise<User>
   signOut: () => Promise<void>
-  /** Re-reads the user (e.g. after the dev panel changes the approval status). */
+  /** Re-reads the user (e.g. after the dev panel changes the user status). */
   refresh: () => Promise<void>
 }
 
 const SessionContext = createContext<Session | null>(null)
 
-/** Where each approval status lands after sign-in (SPEC.md 3-2). */
+/** Where each user status lands after sign-in (DECISIONS.md 56). */
 export const HOME_FOR_STATUS: Record<UserStatus, string> = {
-  approved: '/liked',
-  pending: '/pending',
-  rejected: '/denied',
+  active: '/liked',
+  disabled: '/denied',
+  not_registered: '/denied',
 }
 
 export function SessionProvider({ children }: { children: ReactNode }) {

@@ -9,7 +9,7 @@
 
 | 항목 | 하는 일 |
 |---|---|
-| **Approval status** | 로그인했을 때의 승인 상태(Approved / Pending / Rejected). 로그인한 상태에서 바꾸면 바로 해당 화면으로 이동합니다 |
+| **User status** | 로그인했을 때의 사용자 상태(Active / Disabled / Not registered, DECISIONS 56). 로그인한 상태에서 바꾸면 바로 해당 화면으로 이동합니다 |
 | **Job failures** | None(모두 성공) / Some items fail(일부 실패) / Quota runs out(작업 중간에 할당량 소진) |
 | **Next action** | None / 429 (recovers after retry) / 429 (keeps failing). 다음에 시작하는 작업 하나에만 적용되고, 자동으로 None으로 돌아갑니다 |
 | **Quota left** | 숫자를 입력하고 **Set**을 누르면 오늘 남은 할당량이 그 값이 됩니다 |
@@ -21,18 +21,19 @@
 
 ---
 
-## 1. 로그인과 승인 상태
+## 1. 로그인과 사용자 상태
 
-**DEV 설정:** Reset mock data → Approval status: **Pending**
+**DEV 설정:** Reset mock data → User status: **Not registered**
 
 | 순서 | 할 일 | 기대 결과 |
 |---|---|---|
-| 1 | `Sign in with Google` 클릭 | "Pending Approval" 화면과 "Your access request has been sent…" 문구 |
-| 2 | 주소창에 `localhost:5173/liked` 입력 | 다시 Pending Approval 화면으로 돌아옴 |
-| 3 | DEV → Approval status: **Rejected** | 바로 빨간 "Access Denied" 화면으로 바뀜 |
-| 4 | DEV → **Approved** | Liked Videos 화면으로 이동하고 영상 목록이 보임 |
-| 5 | 상단 `Sign out` 클릭 | 로그인 화면으로 돌아옴 |
-| 6 | 아래쪽 `Privacy Policy` 클릭 → `Back` | 영어 개인정보처리방침이 보이고, Back으로 돌아옴 |
+| 1 | `Sign in with Google` 클릭 | 빨간 "Access Denied" 화면과 "This Google account (alex.kim@example.com) doesn't have access to LikeCleaner. Please contact the admin." 문구 |
+| 2 | 주소창에 `localhost:5173/liked` 입력 | 다시 Access Denied 화면으로 돌아옴 |
+| 3 | `Sign in with a different account` 클릭 | 잠깐 "Signing in…" 후 다시 Access Denied (mock은 계정이 하나뿐) |
+| 4 | DEV → User status: **Disabled** | Access Denied 화면이 그대로 보임 |
+| 5 | DEV → **Active** | Liked Videos 화면으로 이동하고 영상 목록이 보임 |
+| 6 | 상단 `Sign out` 클릭 | 로그인 화면으로 돌아옴 |
+| 7 | 아래쪽 `Privacy Policy` 클릭 → `Back` | 영어 개인정보처리방침이 보이고, Back으로 돌아옴 |
 
 ## 2. 좋아요 목록 둘러보기 (검색, 필터, 정렬, 유지)
 

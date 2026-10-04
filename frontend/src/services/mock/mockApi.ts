@@ -70,10 +70,10 @@ const ERR = {
     message: 'The playlist must be manually sorted to set the position of items.',
   },
   notSignedIn: { status: 401, reason: 'notSignedIn', message: 'Please sign in to continue.' },
-  notApproved: {
+  accessDenied: {
     status: 403,
-    reason: 'notApproved',
-    message: 'Your access request has not been approved yet.',
+    reason: 'accessDenied',
+    message: "This Google account doesn't have access to LikeCleaner.",
   },
   playlistNotFound: {
     status: 404,
@@ -163,9 +163,9 @@ function maybeFail(error: ApiErrorInfo, chance = FAILURE_CHANCE): ApiErrorInfo |
   return getDevSettings().failureMode === 'some_failures' && Math.random() < chance ? error : undefined
 }
 
-function requireApproved() {
+function requireActive() {
   if (!state.signedIn) throw new ApiError(ERR.notSignedIn)
-  if (getDevSettings().userStatus !== 'approved') throw new ApiError(ERR.notApproved)
+  if (getDevSettings().userStatus !== 'active') throw new ApiError(ERR.accessDenied)
 }
 
 /** For read calls: charge quota or throw. */
@@ -452,7 +452,7 @@ export const mockApi: LikeCleanerApi = {
 
   async getLikedVideos() {
     await latency(700)
-    requireApproved()
+    requireActive()
     // videos.list pages + one videoCategories.list call
     chargeOrThrow(pagesFor(state.account.likedIds.length) * QUOTA_COST.listPage + QUOTA_COST.listPage)
     persist()
@@ -461,7 +461,7 @@ export const mockApi: LikeCleanerApi = {
 
   async getPlaylists() {
     await latency()
-    requireApproved()
+    requireActive()
     chargeOrThrow(pagesFor(state.account.playlists.length) * QUOTA_COST.listPage)
     persist()
     return state.account.playlists.map((p): Playlist => ({ id: p.id, title: p.title, itemCount: p.items.length }))
@@ -469,7 +469,7 @@ export const mockApi: LikeCleanerApi = {
 
   async getPlaylistItems(playlistId) {
     await latency(500)
-    requireApproved()
+    requireActive()
     const playlist = findPlaylist(playlistId)
     // playlistItems.list pages + videos.list pages for category and duration (DECISIONS.md 6)
     const available = playlist.items.filter((i) => !i.unavailable).length
@@ -480,7 +480,7 @@ export const mockApi: LikeCleanerApi = {
 
   async createJob(input) {
     await latency()
-    requireApproved()
+    requireActive()
     if (runningJob()) throw new ApiError(ERR.jobAlreadyRunning)
 
     const { items, playlist } = buildItems(input)

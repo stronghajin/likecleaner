@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     google_client_id: str = ""
     google_client_secret: SecretStr = SecretStr("")
 
-    # Admin notification mail (DECISIONS.md 40: SMTP_USER = ADMIN_EMAIL)
+    # Mail settings: currently unused (DECISIONS.md 56). Kept for clients/mail_client.py.
     admin_email: str = "hajin300@gmail.com"
     smtp_user: str = ""
     smtp_app_password: SecretStr = SecretStr("")

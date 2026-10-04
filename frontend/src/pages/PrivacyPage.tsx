@@ -8,7 +8,7 @@ import { ADMIN_EMAIL, EXTERNAL_LINKS } from '../config'
 const EFFECTIVE_DATE = 'October 2, 2026'
 
 const RETENTION: [string, string][] = [
-  ['Account details: name, email address, profile image, approval status', 'Until you ask us to delete them'],
+  ['Account details: name, email address, profile image, account status', 'Until you ask us to delete them'],
   ['Google sign-in tokens (stored encrypted)', 'Until your account is deleted'],
   ['Job history: video IDs, video titles and the result of each item', '30 days'],
   ['Quota usage records', '30 days'],
@@ -45,7 +45,7 @@ export default function PrivacyPage() {
           <Section title="Overview">
             <p>
               LikeCleaner is a small web tool that helps you clean up your YouTube liked videos and playlists. It is
-              available only to people the admin has approved. This policy explains what we collect, why, and how long
+              available only to people the admin has registered. This policy explains what we collect, why, and how long
               we keep it.
             </p>
           </Section>

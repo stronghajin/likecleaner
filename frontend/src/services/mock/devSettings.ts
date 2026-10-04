@@ -26,9 +26,12 @@ export interface DevSettings {
 }
 
 const KEY = 'likecleaner.mock.devSettings'
-const DEFAULTS: DevSettings = { userStatus: 'approved', failureMode: 'none', nextAction: 'none' }
+const DEFAULTS: DevSettings = { userStatus: 'active', failureMode: 'none', nextAction: 'none' }
+const USER_STATUSES: UserStatus[] = ['active', 'disabled', 'not_registered']
 
 let current: DevSettings = { ...DEFAULTS, ...load<Partial<DevSettings>>(KEY) }
+// Settings saved before DECISIONS.md 56 may still hold 'approved' / 'pending' / 'rejected'.
+if (!USER_STATUSES.includes(current.userStatus)) current.userStatus = DEFAULTS.userStatus
 
 export function getDevSettings(): DevSettings {
   return { ...current }

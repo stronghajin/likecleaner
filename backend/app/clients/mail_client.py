@@ -1,4 +1,8 @@
-"""Gmail SMTP with an app password (DECISIONS.md 40)."""
+"""Gmail SMTP with an app password.
+
+Currently unused: the admin notification mail was dropped (DECISIONS.md 56).
+Kept so mail can be added back later.
+"""
 
 from email.message import EmailMessage
 

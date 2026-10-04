@@ -2,7 +2,11 @@
 // never the mock data or the real API responses directly.
 // Field names follow the DB tables in SPEC.md section 9 where they overlap.
 
-export type UserStatus = 'pending' | 'approved' | 'rejected'
+/**
+ * `active` / `disabled` come from the `users` table; `not_registered` = signed in with an email
+ * the admin has not registered (DECISIONS.md 56).
+ */
+export type UserStatus = 'active' | 'disabled' | 'not_registered'
 
 export interface User {
   id: string
