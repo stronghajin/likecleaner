@@ -11,6 +11,13 @@ _TMP_DIR = Path(tempfile.mkdtemp(prefix="likecleaner-test-"))
 # Must be set before `app` is imported: the engine is created from settings at import time.
 os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{_TMP_DIR / 'test.db'}"
 
+from cryptography.fernet import Fernet  # noqa: E402
+
+# Tests never use the real secrets in backend/.env.
+os.environ["TOKEN_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
+os.environ["GOOGLE_CLIENT_SECRET"] = "test-client-secret"
+os.environ["SMTP_APP_PASSWORD"] = "test-app-password"
+
 import httpx  # noqa: E402
 
 from app.main import app  # noqa: E402
