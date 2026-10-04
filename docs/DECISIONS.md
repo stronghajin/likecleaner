@@ -91,6 +91,8 @@
     - `job_items`: `playlist_item_id`, `error_reason`, 처리 순서(`position`)
     - `job_items.status`에 `pending`(아직 처리 전) 추가
 43. PoC와 실제 동작 테스트에는 별도 테스트용 Google 계정을 쓴다. 기존 계정으로 할 때는 2~3개 소량으로만 한다.
+    - (2026-10-04 갱신) 테스트 계정은 기존 계정 `hajin300@gmail.com`을 쓴다. 따라서 실제로 바꾸는 작업은 항상 2~3개 소량으로, 지워져도 되는 영상만 고른다. 테스트용 재생목록은 이름을 `LC Test 1`, `LC Test 2`처럼 지어 테스트 후 지우기 쉽게 한다.
+    - P2-3의 "새 사용자 → 승인 대기" 확인에는 두 번째 Google 계정이 필요하다. 그 계정도 GCP 테스트 사용자로 등록한다(DECISIONS 51).
 44. 로그인 유지 기간은 7일이다. 서버 재시작으로 메모리의 좋아요 목록이 사라지면 화면이 자동으로 다시 불러온다.
 45. 사용자가 Google 계정 설정에서 권한을 끊어 토큰 갱신이 실패하면(`invalid_grant`), 2단계(YouTube 권한) 로그인으로 다시 보낸다.
 46. YouTube 카테고리 이름은 `hl=en`, `regionCode=US`로 조회한다.
@@ -98,3 +100,10 @@
 48. 실제 API를 쓸 때 진행 상황 조회 간격은 1.5초로 한다(mock은 0.7초 유지 가능).
 49. 기획서 2장의 환경 변수에 두 가지를 더한다: `SESSION_SECRET`(로그인 쿠키 서명용 무작위 문자열), `DATABASE_URL`(선택, 기본값은 `backend/data/likecleaner.db`). `TOKEN_ENCRYPTION_KEY`와 `SESSION_SECRET`은 처음 설정할 때 자동 생성해 `backend/.env`에만 둔다.
 50. 서버가 켜질 때 DB 구조를 자동으로 최신 상태로 맞춘다(alembic upgrade). 따로 DB 준비 명령을 실행할 필요가 없다.
+
+## Phase 2 진행 중 결정 (2026-10-04)
+
+51. Google OAuth 앱은 P2-1~P2-6 동안 **"테스트 중(Testing)" 상태**로 개발한다. 게시(In production)하려면 브랜딩의 홈페이지, 개인정보처리방침 주소, 승인된 도메인이 필요한데, 실제 인터넷 주소가 생기기 전에는 채울 수 없기 때문이다.
+    - 개발 중에는 테스트 계정과 `hajin300@gmail.com`을 GCP 콘솔의 테스트 사용자로 등록해 쓴다. refresh token이 7일 뒤 만료되므로 가끔 다시 로그인한다.
+    - P2-7에서 운영 주소가 생기면 홈페이지와 개인정보처리방침 주소를 넣고 게시해, 기획서 3-1의 운영 방식(In production, 검증 없음)으로 바꾼다. 브랜딩 로고는 올리지 않는다(올리면 앱 검증이 필요해진다).
+    - 기획서 14장 PoC 2번("In production 상태에서 `youtube` 스코프 로그인과 refresh token 발급")은 P2-2가 아니라 P2-7에서 확인한다. P2-2에서는 테스트 상태에서 같은 로그인과 발급이 되는지만 확인한다.
