@@ -113,9 +113,14 @@
 52. 좋아요 목록은 기획서대로 `videos.list?myRating=like`로 마지막 페이지까지 가져온다. YouTube가 최근 약 1,000개(PoC: 969개)까지만 돌려주므로, Liked Videos 화면에는 **최근 좋아요 약 1,000개만** 보인다. 한 번에 전부 보여줄 필요는 없다는 판단이다.
     - "좋아요 표시한 동영상" 재생목록(`LL`)으로 전부(약 5,000개) 가져오는 방법은 쓰지 않는다. 불러올 때마다 약 200 units가 들고, 삭제/비공개 영상까지 섞여 나오기 때문이다.
     - `pageInfo.totalResults`는 실제로 받을 수 있는 개수와 달라(PoC: 6,173) 화면 숫자에 쓰지 않는다.
+    - (2026-10-04 보완) 이 제한을 사용자에게 알린다. Liked Videos 화면 목록 위에 회색(`muted`) 안내 문구 `Showing your most recent liked videos (up to about 1,000, a YouTube limit).`를 표시한다. P2-4에서 화면을 연결할 때 반영한다.
 53. 재생목록 항목의 상태 판정(`VideoAvailability`): `videoOwnerChannelTitle`이 없으면 볼 수 없는 영상이다. 그중 `status.privacyStatus`가 `private`이면 `private`, 그 밖에는 `deleted`로 본다. 나머지는 `available`이다. 자기 비공개 영상은 채널 이름이 있으므로 `available`이 된다.
+    - (2026-10-04 확인) 내가 직접 올린 비공개 영상은 내가 볼 수 있으므로 `Remove Unavailable Videos` 대상에서 빠져야 한다. 실제 계정에서 확인한 결과, 내 비공개 영상(4개)은 `privacyStatus`가 `private`이지만 실제 제목, `videoOwnerChannelTitle`, 썸네일이 모두 있었다. 그래서 이 규칙으로 `available`이 되므로 규칙은 그대로 둔다(`POC_RESULTS.md` 3장).
 54. 자동 정렬 재생목록에서도 `position=0` 추가가 오류 없이 됐다(`manualSortRequired`가 나지 않음). 그래도 기획서 6장의 "위치 없이 다시 추가" 처리와 DECISIONS 30의 예상 소모량 50 units 추가는 혹시 모를 경우를 위해 그대로 둔다.
 55. 재생목록 추가·삭제는 몇 초(PoC: 약 5초) 뒤에야 조회에 반영된다. 작업이 끝난 직후 재생목록을 다시 불러오면 이전 상태가 보일 수 있다. 처리 방법은 P2-5/P2-6에서 정하되, 화면 동작이 바뀌면 먼저 묻는다.
+    - (2026-10-04 결정) 작업이 끝난 직후에는 목록을 다시 불러오지 않는다. 작업 결과(성공한 항목)를 기준으로 화면을 바로 갱신한다.
+    - 작업 완료 후 10초 안에 `Resync`를 누르면 버튼을 잠시 비활성화하고 `Syncing with YouTube...`를 표시한다. 10초가 지나면 다시 불러온다. 작업 완료 후 10초가 지났거나 작업이 없었으면 `Resync`는 바로 다시 조회한다.
+    - 적용은 P2-5, P2-6에서 한다.
 
 ## 승인 흐름 단순화: 허용 목록 방식 (2026-10-04)
 

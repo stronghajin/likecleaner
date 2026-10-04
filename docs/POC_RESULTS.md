@@ -53,6 +53,7 @@ OAuth 앱은 "테스트 중" 상태였다(DECISIONS 51).
 
 - 삭제/비공개 영상 14개의 ID로 `videos.list`를 부르면 **하나도 돌아오지 않는다**. 그래서 채널, 카테고리, 길이를 알 수 없다(`PlaylistItem`의 `null` 칸과 맞음).
 - 제목은 실제 제목이면서 채널 이름이 없는 항목은 없었다.
+- (추가 확인) 내가 올린 비공개 영상 4개는 업로드 재생목록에서 `privacyStatus`가 `private`이었다. 하지만 실제 제목, `videoOwnerChannelTitle`, 썸네일이 모두 있었다. 그래서 "볼 수 없는 영상"으로 판정되지 않는다(DECISIONS 53).
 - → 판정 규칙: DECISIONS 53
 
 ## 4. `position=0` 추가 시 자동 정렬 재생목록에서 오류가 나는가 → 오류 없음
