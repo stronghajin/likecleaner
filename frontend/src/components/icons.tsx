@@ -18,6 +18,12 @@ export const ICON_SHAPES = {
     </g>
   ),
   playlist: <path d="M3 6h12M3 11h12M3 16h7M17 14v6M14 17h6" />,
+  external: (
+    <g>
+      <path d="M14 4h6v6M20 4l-9 9" />
+      <path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" />
+    </g>
+  ),
 } satisfies Record<string, ReactNode>
 
 export type IconName = keyof typeof ICON_SHAPES

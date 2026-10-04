@@ -36,6 +36,10 @@ interface LikedVideosState {
   /** null until the first load finishes. */
   videos: Video[] | null
   loading: boolean
+  /** Liked entries read so far while loading, or null when not loading. */
+  progress: number | null
+  /** Deleted/private liked videos left out of the list (DECISIONS.md 59). */
+  hiddenUnavailable: number
   error: string
   resync: () => Promise<void>
   view: LikedVideosView
@@ -58,6 +62,8 @@ export function LikedVideosProvider({ children }: { children: ReactNode }) {
   const { refreshQuota } = useQuota()
   const [videos, setVideos] = useState<Video[] | null>(null)
   const [loading, setLoading] = useState(false)
+  const [progress, setProgress] = useState<number | null>(null)
+  const [hiddenUnavailable, setHiddenUnavailable] = useState(0)
   const [error, setError] = useState('')
   const started = useRef(false)
   const [view, setView] = useState<LikedVideosView>(DEFAULT_VIEW)
@@ -83,17 +89,20 @@ export function LikedVideosProvider({ children }: { children: ReactNode }) {
   // `refresh` = Resync: ask YouTube again even if the server still has the list (DECISIONS.md 58).
   const load = useCallback(async (refresh: boolean) => {
     setLoading(true)
+    setProgress(0)
     setError('')
     try {
-      const loaded = await api.getLikedVideos({ refresh })
-      setVideos(loaded)
+      const loaded = await api.getLikedVideos({ refresh, onProgress: setProgress })
+      setVideos(loaded.videos)
+      setHiddenUnavailable(loaded.hiddenUnavailable)
       // Drop selections for videos that are no longer liked.
-      const stillLiked = new Set(loaded.map((v) => v.id))
+      const stillLiked = new Set(loaded.videos.map((v) => v.id))
       keepOnly(stillLiked)
     } catch (e) {
       setError((e as Error).message)
     } finally {
       setLoading(false)
+      setProgress(null)
       refreshQuota()
     }
   }, [refreshQuota, keepOnly])
@@ -112,6 +121,8 @@ export function LikedVideosProvider({ children }: { children: ReactNode }) {
       value={{
         videos,
         loading,
+        progress,
+        hiddenUnavailable,
         error,
         resync,
         view,

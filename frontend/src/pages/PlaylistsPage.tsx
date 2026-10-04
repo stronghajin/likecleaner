@@ -4,11 +4,13 @@ import Button from '../components/Button'
 import Pagination from '../components/Pagination'
 import SelectionBar from '../components/SelectionBar'
 import VideoTable from '../components/VideoTable'
+import YouTubeLink from '../components/YouTubeLink'
 import { MAX_SELECTION } from '../services'
 import type { Job, PlaylistItem } from '../services'
 import { useJob } from '../state/job'
 import { usePlaylists } from '../state/playlists'
 import { formatNumber } from '../utils/format'
+import { playlistUrl } from '../utils/youtubeLinks'
 
 // Playlists (SPEC.md 7): pick a playlist, then clean it up. No search, filters or sorting (DECISIONS.md 5).
 
@@ -130,13 +132,16 @@ export default function PlaylistsPage() {
               {playlists.map((p) => {
                 const isActive = p.id === activeId
                 return (
-                  <li key={p.id} className="border-b last:border-b-0">
+                  <li
+                    key={p.id}
+                    className={`flex items-center border-b last:border-b-0 ${isActive ? 'bg-accent text-bg' : ''}`}
+                  >
                     <button
                       type="button"
                       onClick={() => showPlaylist(p.id)}
                       aria-current={isActive ? 'true' : undefined}
-                      className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left ${
-                        isActive ? 'bg-accent text-bg' : 'hover:bg-text/5'
+                      className={`flex min-w-0 flex-1 items-center justify-between gap-3 py-3 pr-2 pl-4 text-left ${
+                        isActive ? '' : 'hover:bg-text/5'
                       }`}
                     >
                       <span className="truncate font-medium">{p.title}</span>
@@ -144,6 +149,10 @@ export default function PlaylistsPage() {
                         {formatNumber(p.itemCount)}
                       </span>
                     </button>
+                    {/* Next to the button, not inside it: a link cannot sit in a button (DECISIONS.md 60). */}
+                    <span className={`shrink-0 pr-2 ${isActive ? '[&_a]:text-bg/70 [&_a:hover]:text-bg' : ''}`}>
+                      <YouTubeLink href={playlistUrl(p.id)} label={`Open ${p.title} on YouTube`} />
+                    </span>
                   </li>
                 )
               })}
@@ -234,6 +243,7 @@ export default function PlaylistsPage() {
                   <VideoTable
                     rows={pageRows.map((i) => ({
                       key: i.playlistItemId,
+                      videoId: i.videoId,
                       title: i.title,
                       channelTitle: i.channelTitle,
                       categoryName: i.categoryName,

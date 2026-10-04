@@ -41,6 +41,13 @@ export interface Video {
   thumbnailUrl: string
 }
 
+/** The liked list: every liked video that can still be watched (DECISIONS.md 59). */
+export interface LikedVideosResult {
+  videos: Video[]
+  /** Deleted or private liked videos left out of `videos`. */
+  hiddenUnavailable: number
+}
+
 export interface Playlist {
   id: string
   title: string

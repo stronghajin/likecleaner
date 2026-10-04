@@ -42,8 +42,26 @@ function countBy(videos: Video[], key: (v: Video) => string): { value: string; c
   return [...counts].map(([value, count]) => ({ value, count })).sort((a, b) => a.value.localeCompare(b.value))
 }
 
+/** "Loading your liked videos… 1,250 loaded" (DECISIONS.md 59). */
+function loadingText(progress: number | null): string {
+  return progress ? `Loading your liked videos… ${formatNumber(progress)} loaded` : 'Loading your liked videos…'
+}
+
 export default function LikedVideosPage() {
-  const { videos, loading, error, resync, view, updateView, selectedIds, select, deselect, clearSelection } =
+  const {
+    videos,
+    loading,
+    progress,
+    hiddenUnavailable,
+    error,
+    resync,
+    view,
+    updateView,
+    selectedIds,
+    select,
+    deselect,
+    clearSelection,
+  } =
     useLikedVideos()
   const { running, trackJob } = useJob()
   const [dialog, setDialog] = useState<'remove' | 'move' | null>(null)
@@ -189,6 +207,11 @@ export default function LikedVideosPage() {
             )}
           </div>
           <div className="flex items-center gap-4">
+            {hiddenUnavailable > 0 && (
+              <span className="text-xs text-muted tabular-nums">
+                {formatNumber(hiddenUnavailable)} unavailable {hiddenUnavailable === 1 ? 'video' : 'videos'} hidden
+              </span>
+            )}
             <span className="text-muted tabular-nums">
               {filtered.length === 0
                 ? '0 videos'
@@ -213,13 +236,11 @@ export default function LikedVideosPage() {
       )}
       {videos && error && <p className="mt-2 text-right text-danger">{error}</p>}
 
-      {/* YouTube only returns the latest ~1,000 likes (DECISIONS.md 52). */}
-      <p className="mt-3 text-xs text-muted">
-        Showing your most recent liked videos (up to about 1,000, a YouTube limit).
-      </p>
+      {/* Resync of a long list takes a while: show how far it got (DECISIONS.md 59). */}
+      {videos && loading && <p className="mt-3 text-xs text-muted">{loadingText(progress)}</p>}
 
-      <div className="mt-2 border bg-panel">
-        {!videos && loading && <p className="p-6 text-muted">Loading your liked videos…</p>}
+      <div className="mt-3 border bg-panel">
+        {!videos && loading && <p className="p-6 text-muted">{loadingText(progress)}</p>}
         {!videos && error && (
           <div className="flex items-center gap-4 p-6">
             <p className="text-danger">{error}</p>
@@ -230,7 +251,7 @@ export default function LikedVideosPage() {
           <p className="p-6 text-muted">{isFiltered ? 'No videos match your filters.' : 'You have no liked videos.'}</p>
         )}
         {videos && filtered.length > 0 && (
-          <VideoTable rows={pageRows.map((v) => ({ key: v.id, ...v }))} selectedKeys={selectedIds} onToggle={toggle} />
+          <VideoTable rows={pageRows.map((v) => ({ key: v.id, videoId: v.id, ...v }))} selectedKeys={selectedIds} onToggle={toggle} />
         )}
       </div>
 

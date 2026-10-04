@@ -1,4 +1,6 @@
-from app.schemas.common import ApiModel
+from typing import Literal
+
+from app.schemas.common import ApiModel, ErrorResponse
 
 
 class VideoResponse(ApiModel):
@@ -12,3 +14,21 @@ class VideoResponse(ApiModel):
     duration_seconds: int
     published_at: str  # upload date, ISO
     thumbnail_url: str
+
+
+class LikedVideosResponse(ApiModel):
+    """Frontend `LikedVideosResult`: every liked video that can still be watched (DECISIONS.md 59)."""
+
+    videos: list[VideoResponse]
+    # Deleted/private videos left out of `videos`.
+    hidden_unavailable: int
+
+
+class LikesLoadStatus(ApiModel):
+    """Progress of loading the liked list in the background (DECISIONS.md 59)."""
+
+    state: Literal["idle", "loading", "ready", "error"]
+    # Liked entries read from YouTube so far (shown + hidden).
+    loaded: int
+    hidden_unavailable: int
+    error: ErrorResponse | None = None

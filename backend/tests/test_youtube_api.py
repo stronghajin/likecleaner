@@ -1,5 +1,7 @@
 """Read APIs (likes, playlists, items, quota) against a fake YouTube (respx). Nothing reaches the internet."""
 
+import asyncio
+
 import httpx
 import pytest
 from sqlalchemy import select
@@ -50,14 +52,10 @@ class FakeYouTube:
             status, reason = self.fail_with
             self.calls.append("videos.list")
             return httpx.Response(status, json={"error": {"code": status, "message": reason, "errors": [{"reason": reason}]}})
-        if params.get("myRating") == "like":
-            self.calls.append("videos.list(like)")
-            if params.get("pageToken") == "p2":
-                # v1 again: a like added mid-load shifted it onto the next page
-                return httpx.Response(200, json={"items": [_video("v3", "20"), _video("v1")]})
-            return httpx.Response(200, json={"items": [_video("v1"), _video("v2")], "nextPageToken": "p2"})
         self.calls.append(f"videos.list(id={params['id']})")
-        return httpx.Response(200, json={"items": [_video(i) for i in params["id"].split(",") if i != "gone"]})
+        category = {"v3": "20"}
+        ids = params["id"].split(",")
+        return httpx.Response(200, json={"items": [_video(i, category.get(i, "10")) for i in ids if i != "gone"]})
 
     def categories(self, request: httpx.Request) -> httpx.Response:
         params = request.url.params
@@ -82,6 +80,37 @@ class FakeYouTube:
         )
 
     def playlist_items(self, request: httpx.Request) -> httpx.Response:
+        params = request.url.params
+        if self.fail_with:
+            status, reason = self.fail_with
+            self.calls.append("playlistItems.list")
+            return httpx.Response(status, json={"error": {"code": status, "message": reason, "errors": [{"reason": reason}]}})
+        if params["playlistId"] == "LL":
+            # The "Liked videos" playlist (DECISIONS.md 59), newest first.
+            self.calls.append(f"playlistItems.list(LL,{params.get('pageToken', 'p1')})")
+            if params.get("pageToken") == "p2":
+                return httpx.Response(
+                    200,
+                    json={
+                        "items": [
+                            _item("l3", "v3", 3, owner="Chan", privacy="public", title="Title v3"),
+                            # v1 again: a like added mid-load shifted it onto the next page
+                            _item("l4", "v1", 4, owner="Chan", privacy="public", title="Title v1"),
+                            _item("l5", "gone", 5, owner="Chan", privacy="public", title="Region blocked"),
+                        ]
+                    },
+                )
+            return httpx.Response(
+                200,
+                json={
+                    "items": [
+                        _item("l0", "v1", 0, owner="Chan", privacy="public", title="Title v1"),
+                        _item("l1", "vd", 1, owner=None, privacy="privacyStatusUnspecified", title="Deleted video"),
+                        _item("l2", "v2", 2, owner="Chan", privacy="public", title="Title v2"),
+                    ],
+                    "nextPageToken": "p2",
+                },
+            )
         self.calls.append("playlistItems.list")
         return httpx.Response(
             200,
@@ -108,20 +137,36 @@ def youtube(google):
     return fake
 
 
+async def _load_likes(client: httpx.AsyncClient, *, refresh: bool = False) -> dict:
+    """Starts the background load and waits for it like the browser does. Returns the final status."""
+    status = (await client.post("/api/likes/load", params={"refresh": "true"} if refresh else None)).json()
+    for _ in range(200):
+        if status["state"] != "loading":
+            return status
+        await asyncio.sleep(0.01)
+        status = (await client.get("/api/likes/status")).json()
+    raise AssertionError("load did not finish")
+
+
 async def _usage_rows() -> list[QuotaUsage]:
     async with SessionFactory() as db:
         rows = await db.scalars(select(QuotaUsage).order_by(QuotaUsage.id))
         return list(rows)
 
 
-async def test_liked_list_merges_pages_and_fills_categories(client, google, youtube):
+async def test_whole_liked_list_from_the_liked_playlist(client, google, youtube):
     await sign_in_active(client, google, "likes@example.com", "sub-likes")
     quota_before = (await client.get("/api/quota")).json()["used"]
+    assert (await client.get("/api/likes")).json()["reason"] == "likesNotReady"  # nothing loaded yet
 
-    response = await client.get("/api/likes")
-    assert response.status_code == 200
-    videos = response.json()
-    assert [v["id"] for v in videos] == ["v1", "v2", "v3"]
+    status = await _load_likes(client)
+    # 5 different liked entries; the deleted one and the one videos.list does not know are hidden.
+    assert status == {"state": "ready", "loaded": 5, "hiddenUnavailable": 2, "error": None}
+
+    body = (await client.get("/api/likes")).json()
+    assert body["hiddenUnavailable"] == 2
+    videos = body["videos"]
+    assert [v["id"] for v in videos] == ["v1", "v2", "v3"]  # liked order, each once
     assert videos[0] == {
         "id": "v1",
         "title": "Title v1",
@@ -133,33 +178,52 @@ async def test_liked_list_merges_pages_and_fills_categories(client, google, yout
         "thumbnailUrl": "https://i/v1.jpg",
     }
     assert videos[2]["categoryName"] == "Gaming"
-    # 2 pages of videos.list + the category lists (names are remembered across users and tests)
+    # Details are asked only for watchable videos, one videos.list per LL page.
+    assert "videos.list(id=v1,v2)" in youtube.calls
+    assert "videos.list(id=v3,gone)" in youtube.calls
+    # 2 LL pages + 2 videos.list + the category lists (remembered across users and tests)
     used = (await client.get("/api/quota")).json()["used"] - quota_before
-    assert used == 2 + sum(c.startswith("videoCategories.list") for c in youtube.calls)
+    assert used == 4 + sum(c.startswith("videoCategories.list") for c in youtube.calls)
 
 
 async def test_second_load_comes_from_memory_and_resync_reloads(client, google, youtube):
     await sign_in_active(client, google, "memory@example.com", "sub-memory")
-    await client.get("/api/likes")
+    await _load_likes(client)
     calls = len(youtube.calls)
 
-    assert len((await client.get("/api/likes")).json()) == 3
+    assert (await _load_likes(client))["state"] == "ready"
+    assert len((await client.get("/api/likes")).json()["videos"]) == 3
     assert len(youtube.calls) == calls  # no YouTube call, 0 units
 
-    await client.get("/api/likes", params={"refresh": "true"})
-    assert youtube.calls[calls:] == ["videos.list(like)", "videos.list(like)"]  # categories already known
+    await _load_likes(client, refresh=True)
+    assert youtube.calls[calls:] == [
+        "playlistItems.list(LL,p1)",
+        "videos.list(id=v1,v2)",
+        "playlistItems.list(LL,p2)",
+        "videos.list(id=v3,gone)",
+    ]  # categories already known
+
+
+async def test_other_requests_answer_while_likes_load(client, google, youtube):
+    await sign_in_active(client, google, "busy@example.com", "sub-busy")
+    started = (await client.post("/api/likes/load")).json()
+    assert started["state"] in ("loading", "ready")
+    assert (await client.get("/api/quota")).status_code == 200
+    assert (await client.get("/api/playlists")).status_code == 200
+    assert (await _load_likes(client))["state"] == "ready"
 
 
 async def test_sign_out_drops_the_lists_in_memory(client, google, youtube):
     await sign_in_active(client, google, "out@example.com", "sub-out")
-    await client.get("/api/likes")
+    await _load_likes(client)
     await client.post("/api/auth/logout")
 
     # Sign in again (YouTube step is skipped now) and the list is loaded from YouTube again.
     await callback(client, code="c1", state=await start(client))
+    assert (await client.get("/api/likes/status")).json()["state"] == "idle"
     calls = len(youtube.calls)
-    await client.get("/api/likes")
-    assert youtube.calls[calls:].count("videos.list(like)") == 2
+    await _load_likes(client)
+    assert "playlistItems.list(LL,p1)" in youtube.calls[calls:]
 
 
 async def test_playlists(client, google, youtube):
@@ -210,13 +274,14 @@ async def test_failed_calls_are_recorded_and_the_error_is_passed_on(client, goog
     before = (await client.get("/api/quota")).json()["used"]
     youtube.fail_with = (403, "quotaExceeded")
 
-    response = await client.get("/api/likes", params={"refresh": "true"})
-    assert response.status_code == 403
-    assert response.json() == {"status": 403, "reason": "quotaExceeded", "message": "quotaExceeded"}
+    status = await _load_likes(client, refresh=True)
+    assert status["state"] == "error"
+    assert status["error"] == {"status": 403, "reason": "quotaExceeded", "message": "quotaExceeded"}
+    assert (await client.get("/api/likes")).status_code == 409
 
     assert (await client.get("/api/quota")).json()["used"] == before + 1
     last = (await _usage_rows())[-1]
-    assert (last.method, last.units, last.success) == ("videos.list", 1, False)
+    assert (last.method, last.units, last.success) == ("playlistItems.list", 1, False)
 
 
 async def test_quota_status(client, google, youtube):
@@ -229,14 +294,16 @@ async def test_quota_status(client, google, youtube):
 
 
 async def test_read_apis_need_an_active_user(client, google, youtube):
-    for path in ("/api/likes", "/api/playlists", "/api/playlists/PL1/items", "/api/quota"):
+    for path in ("/api/likes", "/api/likes/status", "/api/playlists", "/api/playlists/PL1/items", "/api/quota"):
         assert (await client.get(path)).status_code == 401
+    assert (await client.post("/api/likes/load")).status_code == 401
 
     await sign_in_active(client, google, "blocked@example.com", "sub-blocked")
     await set_status("blocked@example.com", "disable")
-    for path in ("/api/likes", "/api/playlists", "/api/playlists/PL1/items", "/api/quota"):
+    for path in ("/api/likes", "/api/likes/status", "/api/playlists", "/api/playlists/PL1/items", "/api/quota"):
         response = await client.get(path)
         assert (response.status_code, response.json()["reason"]) == (403, "accessDenied")
+    assert (await client.post("/api/likes/load")).status_code == 403
 
 
 @pytest.mark.parametrize(

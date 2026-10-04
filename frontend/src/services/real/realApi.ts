@@ -1,7 +1,7 @@
 // The real backend (Phase 2). Sign-in (P2-3) and reading (P2-4) are connected; jobs arrive in P2-5.
 import type { LikeCleanerApi } from '../api'
 import { ApiError } from '../errors'
-import type { Playlist, PlaylistItem, Quota, User, Video } from '../types'
+import type { ApiErrorInfo, LikedVideosResult, Playlist, PlaylistItem, Quota, User } from '../types'
 import { request } from './http'
 
 function notAvailableYet(): Promise<never> {
@@ -11,6 +11,17 @@ function notAvailableYet(): Promise<never> {
 }
 
 const refreshQuery = (refresh?: boolean) => (refresh ? '?refresh=true' : '')
+
+/** Progress of the background liked-list load on the server (DECISIONS.md 59). */
+interface LikesLoadStatus {
+  state: 'idle' | 'loading' | 'ready' | 'error'
+  loaded: number
+  hiddenUnavailable: number
+  error: ApiErrorInfo | null
+}
+
+const LIKES_POLL_MS = 1000
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 export const realApi: LikeCleanerApi = {
   async getCurrentUser() {
@@ -36,8 +47,17 @@ export const realApi: LikeCleanerApi = {
     return request<Quota>('GET', '/api/quota')
   },
 
-  getLikedVideos(options) {
-    return request<Video[]>('GET', `/api/likes${refreshQuery(options?.refresh)}`)
+  async getLikedVideos(options) {
+    // Start (or join) the load, follow its progress, then fetch the finished list.
+    let status = await request<LikesLoadStatus>('POST', `/api/likes/load${refreshQuery(options?.refresh)}`)
+    while (status.state === 'loading') {
+      options?.onProgress?.(status.loaded)
+      await wait(LIKES_POLL_MS)
+      status = await request<LikesLoadStatus>('GET', '/api/likes/status')
+    }
+    if (status.state === 'error' && status.error) throw new ApiError(status.error)
+    options?.onProgress?.(status.loaded)
+    return request<LikedVideosResult>('GET', '/api/likes')
   },
 
   getPlaylists() {

@@ -1,8 +1,12 @@
 import { formatDate, formatDuration } from '../utils/format'
+import { videoUrl } from '../utils/youtubeLinks'
+import YouTubeLink from './YouTubeLink'
 
 /** One list row. Shared by liked videos and playlist items (SPEC.md 6-1, 7-1). */
 export interface VideoRow {
   key: string
+  /** For the YouTube link (DECISIONS.md 60). */
+  videoId: string
   title: string
   channelTitle: string | null
   categoryName: string | null
@@ -13,7 +17,7 @@ export interface VideoRow {
   unavailable?: boolean
 }
 
-const COLUMNS = ['', '', 'Title', 'Channel', 'Category', 'Duration', 'Uploaded']
+const COLUMNS = ['', '', 'Title', 'Channel', 'Category', 'Duration', 'Uploaded', 'Link']
 const RIGHT_ALIGNED_FROM = 5
 
 interface VideoTableProps {
@@ -34,6 +38,7 @@ export default function VideoTable({ rows, selectedKeys, onToggle }: VideoTableP
         <col className="w-[15%]" />
         <col className="w-24" />
         <col className="w-32" />
+        <col className="w-16" />
       </colgroup>
       <thead>
         <tr className="sticky top-16 z-[1] bg-panel text-left text-xs">
@@ -97,6 +102,12 @@ export default function VideoTable({ rows, selectedKeys, onToggle }: VideoTableP
               </td>
               <td className="px-3 py-2 text-right text-muted tabular-nums">
                 {row.publishedAt ? formatDate(row.publishedAt) : '—'}
+              </td>
+              <td className="px-3 py-2 text-right">
+                <YouTubeLink
+                  href={row.unavailable ? null : videoUrl(row.videoId)}
+                  label={`Open ${row.title} on YouTube`}
+                />
               </td>
             </tr>
           )

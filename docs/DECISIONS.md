@@ -110,7 +110,7 @@
 
 ## P2-2 PoC 결과로 정한 것 (2026-10-04, 자세한 내용은 `docs/POC_RESULTS.md`)
 
-52. 좋아요 목록은 기획서대로 `videos.list?myRating=like`로 마지막 페이지까지 가져온다. YouTube가 최근 약 1,000개(PoC: 969개)까지만 돌려주므로, Liked Videos 화면에는 **최근 좋아요 약 1,000개만** 보인다. 한 번에 전부 보여줄 필요는 없다는 판단이다.
+52. (59로 대체) 좋아요 목록은 기획서대로 `videos.list?myRating=like`로 마지막 페이지까지 가져온다. YouTube가 최근 약 1,000개(PoC: 969개)까지만 돌려주므로, Liked Videos 화면에는 **최근 좋아요 약 1,000개만** 보인다. 한 번에 전부 보여줄 필요는 없다는 판단이다.
     - "좋아요 표시한 동영상" 재생목록(`LL`)으로 전부(약 5,000개) 가져오는 방법은 쓰지 않는다. 불러올 때마다 약 200 units가 들고, 삭제/비공개 영상까지 섞여 나오기 때문이다.
     - `pageInfo.totalResults`는 실제로 받을 수 있는 개수와 달라(PoC: 6,173) 화면 숫자에 쓰지 않는다.
     - (2026-10-04 보완) 이 제한을 사용자에게 알린다. Liked Videos 화면 목록 위에 회색(`muted`) 안내 문구 `Showing your most recent liked videos (up to about 1,000, a YouTube limit).`를 표시한다. P2-4에서 화면을 연결할 때 반영한다.
@@ -145,9 +145,25 @@
 ## P2-4 조회 세부 사항 (2026-10-04)
 
 58. 조회 API와 서버 메모리
-    - 좋아요 목록과 재생목록 항목은 사용자별로 서버 메모리에만 둔다(DB 저장 안 함). 메모리에 있으면 그대로 돌려준다(0 units). 비어 있으면(서버 재시작 등) 자동으로 YouTube에서 다시 불러온다. `Resync`는 `refresh=true`로 항상 다시 전체 조회한다. 로그아웃하면 그 사용자의 메모리를 지우고, 7일이 지난 데이터도 쓰지 않는다.
+    - 좋아요 목록과 재생목록 항목은 사용자별로 서버 메모리에만 둔다(DB 저장 안 함). (좋아요 목록을 불러오는 방법은 59로 대체) 메모리에 있으면 그대로 돌려준다(0 units). 비어 있으면(서버 재시작 등) 자동으로 YouTube에서 다시 불러온다. `Resync`는 `refresh=true`로 항상 다시 전체 조회한다. 로그아웃하면 그 사용자의 메모리를 지우고, 7일이 지난 데이터도 쓰지 않는다.
     - 모든 YouTube 호출은 `services/youtube_gateway.py` 한 곳을 거치며, 호출마다 `quota_usage`에 한 줄씩 기록한다(성공·실패·재시도 모두).
     - access token은 만료 1분 전까지 서버 메모리에 두고 다시 쓴다(DB에는 refresh token만 암호화해 저장).
     - 카테고리 이름: YouTube는 `id`와 `regionCode`를 함께 받지 않는다. 그래서 먼저 미국(`regionCode=US`, `hl=en`) 카테고리 전체 목록을 한 번 받아 서버 메모리에 둔다. 그 목록에 없는 번호만 `id`로 다시 묻는다. 서버 한 번 실행에 보통 1 unit이다.
     - `Quota` 응답에 `remaining`(남은 양)과 `resetsInSeconds`(리셋까지 남은 초)를 더한다. 화면 표시는 기존처럼 `limit`, `used`, `resetsAt`을 쓴다.
     - Liked Videos 목록 위에 DECISIONS 52의 안내 문구를 표시한다(mock 모드 포함).
+
+## P2-4 보완 (2026-10-04)
+
+59. 좋아요 목록은 **전체**를 불러온다(52번 대체). 자세한 비교는 `POC_RESULTS.md` 1장.
+    - 방법: "좋아요 표시한 동영상" 재생목록(`playlistItems.list`, `playlistId=LL`)을 끝까지 읽는다. 페이지마다 볼 수 있는 영상만 `videos.list(id=…)` 50개씩으로 길이·카테고리 등을 가져온다.
+    - 실제 계정 기준: 4,919개를 읽어 4,637개를 보여주고 282개를 숨겼다. 약 70~80초, 199 units가 들었다. 지금 방식(`myRating`)은 969개, 20 units였다. 다만 YouTube가 `myRating`에서 알려준 6,173개와는 차이가 있다. 웹에서도 5,000개까지만 보이므로, LL로 받을 수 있는 수가 YouTube가 허락하는 최대치로 본다.
+    - 삭제/비공개이거나 `videos.list`에 없는 영상은 목록에서 빼고, 개수 옆에 작게 `N unavailable videos hidden`만 표시한다(0이면 표시 안 함). 52번 보완의 회색 안내 문구(`up to about 1,000`)는 지운다.
+    - 오래 걸리므로 서버의 백그라운드 작업으로 불러온다. 순서는 `POST /api/likes/load`(Resync는 `refresh=true`) → `GET /api/likes/status`(1초마다) → `GET /api/likes`다. 불러오는 동안 화면에 `Loading your liked videos… N loaded`를 보여주고, 다른 요청(재생목록, 할당량 등)은 막히지 않는다. 로그아웃하거나 서버가 꺼지면 진행 중인 불러오기를 멈춘다.
+    - 서버 메모리 규칙(58)은 그대로다. 새로고침은 0 units이고, Resync는 다시 전체를 읽으므로 약 200 units가 든다.
+    - P2-2 PoC에서 쓴 할당량(약 1,300 units)이 기록에 빠져 있어, `quota_usage`에 `PoC manual adjustment` 1,300 units(2026-10-04, 태평양 시간)를 한 번만 직접 넣었다. 앱 코드와 테스트에는 영향이 없다.
+
+60. 목록에 YouTube 링크를 둔다.
+    - Liked Videos와 재생목록 항목 표의 맨 끝에 `Link` 열을 둔다. 외부 링크 아이콘을 누르면 `https://www.youtube.com/watch?v={videoId}`가 새 탭으로 열린다(`rel="noopener noreferrer"`). 아이콘을 눌러도 행의 체크박스 선택은 바뀌지 않는다.
+    - 삭제/비공개로 볼 수 없는 영상은 아이콘을 회색 비활성으로 두고 `Not available` 툴팁을 보여준다.
+    - Playlists 화면의 재생목록 목록에도 각 재생목록 링크(`https://www.youtube.com/playlist?list={playlistId}`)를 둔다. 재생목록 선택 버튼 옆에 따로 둔다.
+    - 주소는 `frontend/src/utils/youtubeLinks.ts` 한 곳에서 만들고, 아이콘은 `components/YouTubeLink.tsx`를 함께 쓴다. mock/실제 모드 모두 같고, API 호출이나 할당량은 쓰지 않는다.

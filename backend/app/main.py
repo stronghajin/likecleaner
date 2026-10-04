@@ -16,6 +16,7 @@ from app.core.config import get_settings
 from app.core.db import engine
 from app.core.errors import register_error_handlers
 from app.core.migrations import upgrade_to_latest
+from app.services import likes_service
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
@@ -31,6 +32,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.http = httpx.AsyncClient(timeout=30)
     # P2-5: start the job worker and the daily cleanup here.
     yield
+    likes_service.cancel_all()
     await app.state.http.aclose()
     await engine.dispose()
 

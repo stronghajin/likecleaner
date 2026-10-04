@@ -1,4 +1,4 @@
-import type { CreateJobInput, Job, Playlist, PlaylistItem, Quota, User, Video } from './types'
+import type { CreateJobInput, Job, LikedVideosResult, Playlist, PlaylistItem, Quota, User } from './types'
 
 /**
  * Everything the screens can ask for. Phase 1 implements this with mock data (`mock/mockApi.ts`);
@@ -11,6 +11,11 @@ import type { CreateJobInput, Job, Playlist, PlaylistItem, Quota, User, Video } 
 export interface LoadOptions {
   /** Resync: load again from YouTube even if the server still has the list in memory. */
   refresh?: boolean
+}
+
+export interface LikedLoadOptions extends LoadOptions {
+  /** Called while loading with how many liked entries have been read so far. */
+  onProgress?: (loaded: number) => void
 }
 
 export interface LikeCleanerApi {
@@ -39,14 +44,14 @@ export interface LikeCleanerApi {
   getQuota(): Promise<Quota>
 
   /**
-   * Loads the full liked list (uses quota). Call once after sign-in and on Resync (`refresh: true`);
+   * Loads every liked video (uses quota). Call once after sign-in and on Resync (`refresh: true`);
    * filtering, sorting and paging happen on the returned list. Without `refresh` the server may answer
-   * from its memory at 0 units (DECISIONS.md 58). YouTube returns only the latest ~1,000 (DECISIONS.md 52).
-   * Phase 2: GET /api/likes → `videos.list` (myRating=like, part=snippet,contentDetails,
-   * maxResults=50, every page) + `videoCategories.list` → 1 unit per 50 videos + 1
-   * (about 21 units for 1,000 likes).
+   * from its memory at 0 units (DECISIONS.md 58). Deleted/private videos are only counted (DECISIONS.md 59).
+   * Real API: POST /api/likes/load, GET /api/likes/status until ready, GET /api/likes →
+   * `playlistItems.list` (playlistId=LL, every page) + `videos.list` (id=…, per page) +
+   * `videoCategories.list` → about 2 units per 50 likes + 1 (about 195 units for 4,900 likes).
    */
-  getLikedVideos(options?: LoadOptions): Promise<Video[]>
+  getLikedVideos(options?: LikedLoadOptions): Promise<LikedVideosResult>
 
   /**
    * Phase 2: GET /api/playlists → `playlists.list` (mine=true, part=snippet,contentDetails,

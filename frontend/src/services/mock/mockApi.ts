@@ -139,6 +139,8 @@ let state: MockState = load<MockState>(STATE_KEY) ?? freshState()
 const persist = () => save(STATE_KEY, state)
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+/** Pretend some liked videos were deleted or made private (DECISIONS.md 59). */
+const MOCK_HIDDEN_LIKES = 3
 const latency = (base = 250) => wait(base + Math.random() * 250)
 const clone = <T>(value: T): T => structuredClone(value)
 
@@ -457,13 +459,20 @@ export const mockApi: LikeCleanerApi = {
     }
   },
 
-  async getLikedVideos() {
-    await latency(700)
+  async getLikedVideos(options) {
     requireActive()
-    // videos.list pages + one videoCategories.list call
-    chargeOrThrow(pagesFor(state.account.likedIds.length) * QUOTA_COST.listPage + QUOTA_COST.listPage)
+    // Like the real loader: one page of 50 at a time, with progress (DECISIONS.md 59).
+    const total = state.account.likedIds.length + MOCK_HIDDEN_LIKES
+    for (let loaded = 0; loaded < total; loaded = Math.min(total, loaded + 50)) {
+      options?.onProgress?.(loaded)
+      await latency(80)
+    }
+    options?.onProgress?.(total)
+    requireActive()
+    // playlistItems.list(LL) + videos.list per page, and one videoCategories.list call
+    chargeOrThrow(pagesFor(total) * 2 * QUOTA_COST.listPage + QUOTA_COST.listPage)
     persist()
-    return state.account.likedIds.map(toVideo)
+    return { videos: state.account.likedIds.map(toVideo), hiddenUnavailable: MOCK_HIDDEN_LIKES }
   },
 
   async getPlaylists() {

@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from typing import Generic, TypeVar
 
 from app.schemas.playlist import PlaylistItemResponse
-from app.schemas.video import VideoResponse
+from app.schemas.video import LikedVideosResponse
 
 T = TypeVar("T")
 
@@ -23,7 +23,7 @@ class _Entry(Generic[T]):
     stored_at: float
 
 
-_likes: dict[int, _Entry[list[VideoResponse]]] = {}
+_likes: dict[int, _Entry[LikedVideosResponse]] = {}
 _playlist_items: dict[tuple[int, str], _Entry[list[PlaylistItemResponse]]] = {}
 # YouTube category id -> English name. Not personal data, shared by everyone.
 _category_names: dict[str, str] = {}
@@ -35,12 +35,12 @@ def _fresh(entry: _Entry[T] | None) -> T | None:
     return entry.value
 
 
-def get_likes(user_id: int) -> list[VideoResponse] | None:
+def get_likes(user_id: int) -> LikedVideosResponse | None:
     return _fresh(_likes.get(user_id))
 
 
-def set_likes(user_id: int, videos: list[VideoResponse]) -> None:
-    _likes[user_id] = _Entry(videos, time.monotonic())
+def set_likes(user_id: int, likes: LikedVideosResponse) -> None:
+    _likes[user_id] = _Entry(likes, time.monotonic())
 
 
 def get_playlist_items(user_id: int, playlist_id: str) -> list[PlaylistItemResponse] | None:
