@@ -16,7 +16,7 @@ export const api: LikeCleanerApi = isMockMode ? mockApi : realApi
 export const devTools = { getDevSettings, setDevSettings, resetMockData, setQuotaLeft }
 export type { DevSettings, FailureMode, NextAction } from './mock/devSettings'
 
-export type { LikeCleanerApi } from './api'
+export type { LikeCleanerApi, LoadOptions } from './api'
 export { ApiError } from './errors'
 export { isRetryable, summarizeJob } from './jobSummary'
 export type { JobCounts } from './jobSummary'

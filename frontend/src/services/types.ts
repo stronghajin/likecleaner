@@ -21,8 +21,12 @@ export interface Quota {
   limit: number
   /** Units used today by everyone, including failed calls. */
   used: number
+  /** limit - used, never below 0. */
+  remaining: number
   /** Next reset: midnight US Pacific time (ISO string). */
   resetsAt: string
+  /** Seconds until resetsAt, when the server answered. */
+  resetsInSeconds: number
 }
 
 export interface Video {

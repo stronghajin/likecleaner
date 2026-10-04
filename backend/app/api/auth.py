@@ -4,7 +4,7 @@ from fastapi.responses import RedirectResponse
 from app.api.deps import CurrentSession, Db, Http, write_session
 from app.core.errors import AppError
 from app.schemas.user import UserResponse
-from app.services import auth_service
+from app.services import auth_service, session_service
 
 router = APIRouter(tags=["auth"])
 
@@ -34,8 +34,10 @@ async def callback(
 
 
 @router.post("/api/auth/logout", status_code=204)
-async def logout(request: Request) -> Response:
-    """Ends the session only; Google tokens are kept (SPEC.md 3-4)."""
+async def logout(request: Request, session: CurrentSession) -> Response:
+    """Ends the session only; Google tokens are kept (SPEC.md 3-4). Lists in server memory are dropped."""
+    if session.user_id is not None:
+        session_service.forget_user(session.user_id)
     request.session.clear()
     return Response(status_code=204)
 

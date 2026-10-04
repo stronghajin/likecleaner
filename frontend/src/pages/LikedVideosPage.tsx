@@ -213,7 +213,12 @@ export default function LikedVideosPage() {
       )}
       {videos && error && <p className="mt-2 text-right text-danger">{error}</p>}
 
-      <div className="mt-3 border bg-panel">
+      {/* YouTube only returns the latest ~1,000 likes (DECISIONS.md 52). */}
+      <p className="mt-3 text-xs text-muted">
+        Showing your most recent liked videos (up to about 1,000, a YouTube limit).
+      </p>
+
+      <div className="mt-2 border bg-panel">
         {!videos && loading && <p className="p-6 text-muted">Loading your liked videos…</p>}
         {!videos && error && (
           <div className="flex items-center gap-4 p-6">

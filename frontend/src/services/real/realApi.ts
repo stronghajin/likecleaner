@@ -1,7 +1,7 @@
-// The real backend (Phase 2). Sign-in is connected (P2-3); the rest arrives in P2-4 and P2-5.
+// The real backend (Phase 2). Sign-in (P2-3) and reading (P2-4) are connected; jobs arrive in P2-5.
 import type { LikeCleanerApi } from '../api'
 import { ApiError } from '../errors'
-import type { User } from '../types'
+import type { Playlist, PlaylistItem, Quota, User, Video } from '../types'
 import { request } from './http'
 
 function notAvailableYet(): Promise<never> {
@@ -9,6 +9,8 @@ function notAvailableYet(): Promise<never> {
     new ApiError({ status: 501, reason: 'notAvailableYet', message: 'This part is not connected to the server yet.' }),
   )
 }
+
+const refreshQuery = (refresh?: boolean) => (refresh ? '?refresh=true' : '')
 
 export const realApi: LikeCleanerApi = {
   async getCurrentUser() {
@@ -30,10 +32,25 @@ export const realApi: LikeCleanerApi = {
     await request<void>('POST', '/api/auth/logout')
   },
 
-  getQuota: notAvailableYet,
-  getLikedVideos: notAvailableYet,
-  getPlaylists: notAvailableYet,
-  getPlaylistItems: notAvailableYet,
+  getQuota() {
+    return request<Quota>('GET', '/api/quota')
+  },
+
+  getLikedVideos(options) {
+    return request<Video[]>('GET', `/api/likes${refreshQuery(options?.refresh)}`)
+  },
+
+  getPlaylists() {
+    return request<Playlist[]>('GET', '/api/playlists')
+  },
+
+  getPlaylistItems(playlistId, options) {
+    return request<PlaylistItem[]>(
+      'GET',
+      `/api/playlists/${encodeURIComponent(playlistId)}/items${refreshQuery(options?.refresh)}`,
+    )
+  },
+
   createJob: notAvailableYet,
   retryFailedItems: notAvailableYet,
   getLatestJob: notAvailableYet,

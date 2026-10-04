@@ -37,3 +37,19 @@ async def client(started_app: None) -> AsyncIterator[httpx.AsyncClient]:
     transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
         yield c
+
+
+@pytest.fixture
+def google():
+    """Fake Google sign-in (tests/fake_google.py). YouTube calls are not faked here."""
+    import respx
+
+    from app.clients.google_oauth_client import TOKEN_URL, USERINFO_URL
+    from tests.fake_google import FakeGoogle
+
+    with respx.mock(assert_all_called=False) as mock:
+        fake = FakeGoogle("me@example.com", "sub-me")
+        mock.post(TOKEN_URL).mock(side_effect=fake.token)
+        mock.get(USERINFO_URL).mock(side_effect=fake.userinfo)
+        fake.respx = mock
+        yield fake

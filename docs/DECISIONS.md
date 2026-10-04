@@ -141,3 +141,13 @@
     - 환경 변수 `APP_BASE_URL`(비우면 `http://localhost:5173`)을 더한다. Google 리디렉션 주소는 이 값에 `/api/auth/google/callback`을 붙여 만든다. 운영 주소는 P2-7에서 넣는다.
     - P2-3에서는 화면 중 로그인 부분만 실제 백엔드에 연결한다(`npm run dev:real`). 나머지는 P2-4 전까지 `notAvailableYet` 오류로 보인다. `npm run dev`는 mock 그대로다.
     - Access Denied를 본 사람이 나중에 등록되면, 다음 화면 갱신 때 로그인 화면으로 돌아간다. 다시 로그인하면 들어갈 수 있다.
+
+## P2-4 조회 세부 사항 (2026-10-04)
+
+58. 조회 API와 서버 메모리
+    - 좋아요 목록과 재생목록 항목은 사용자별로 서버 메모리에만 둔다(DB 저장 안 함). 메모리에 있으면 그대로 돌려준다(0 units). 비어 있으면(서버 재시작 등) 자동으로 YouTube에서 다시 불러온다. `Resync`는 `refresh=true`로 항상 다시 전체 조회한다. 로그아웃하면 그 사용자의 메모리를 지우고, 7일이 지난 데이터도 쓰지 않는다.
+    - 모든 YouTube 호출은 `services/youtube_gateway.py` 한 곳을 거치며, 호출마다 `quota_usage`에 한 줄씩 기록한다(성공·실패·재시도 모두).
+    - access token은 만료 1분 전까지 서버 메모리에 두고 다시 쓴다(DB에는 refresh token만 암호화해 저장).
+    - 카테고리 이름: YouTube는 `id`와 `regionCode`를 함께 받지 않는다. 그래서 먼저 미국(`regionCode=US`, `hl=en`) 카테고리 전체 목록을 한 번 받아 서버 메모리에 둔다. 그 목록에 없는 번호만 `id`로 다시 묻는다. 서버 한 번 실행에 보통 1 unit이다.
+    - `Quota` 응답에 `remaining`(남은 양)과 `resetsInSeconds`(리셋까지 남은 초)를 더한다. 화면 표시는 기존처럼 `limit`, `used`, `resetsAt`을 쓴다.
+    - Liked Videos 목록 위에 DECISIONS 52의 안내 문구를 표시한다(mock 모드 포함).

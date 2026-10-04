@@ -447,7 +447,14 @@ export const mockApi: LikeCleanerApi = {
   async getQuota() {
     await latency(100)
     rolloverQuota()
-    return { limit: DAILY_QUOTA, used: state.quota.used, resetsAt: nextResetIso() }
+    const resetsAt = nextResetIso()
+    return {
+      limit: DAILY_QUOTA,
+      used: state.quota.used,
+      remaining: Math.max(0, DAILY_QUOTA - state.quota.used),
+      resetsAt,
+      resetsInSeconds: Math.max(0, Math.round((Date.parse(resetsAt) - Date.now()) / 1000)),
+    }
   },
 
   async getLikedVideos() {

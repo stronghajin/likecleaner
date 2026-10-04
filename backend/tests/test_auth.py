@@ -4,11 +4,10 @@ from urllib.parse import parse_qs, urlparse
 
 import httpx
 import pytest
-import respx
 from fastapi import APIRouter
 
 from app.api.deps import ActiveUser
-from app.clients.google_oauth_client import AUTH_URL, TOKEN_URL, USERINFO_URL, YOUTUBE_SCOPE
+from app.clients.google_oauth_client import AUTH_URL, YOUTUBE_SCOPE
 from app.core.db import SessionFactory
 from app.core.errors import AppError
 from app.core.security import decrypt_secret
@@ -16,8 +15,13 @@ from app.main import app
 from app.repositories import token_repository, user_repository
 from app.services import auth_service
 from scripts import users as users_cli
+from tests.fake_google import BASIC
+from tests.fake_google import callback as _callback
+from tests.fake_google import register as _register
+from tests.fake_google import set_status as _set
+from tests.fake_google import start as _start
+from tests.fake_google import state_of as _state_of
 
-BASIC = "openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile"
 
 # A route behind the active-user gate, standing in for the YouTube APIs that come in P2-4.
 _gate = APIRouter()
@@ -31,67 +35,6 @@ async def _active_only(user: ActiveUser) -> dict:
 app.include_router(_gate)
 
 
-class FakeGoogle:
-    """Token endpoint: code "c1" = step 1, "c2" = step 2. Userinfo answers for `self.sub` / `self.email`."""
-
-    def __init__(self, email: str, sub: str) -> None:
-        self.email, self.sub = email, sub
-        self.step2_scope = f"{BASIC} {YOUTUBE_SCOPE}"
-        self.refresh_error: str | None = None
-
-    def token(self, request: httpx.Request) -> httpx.Response:
-        form = parse_qs(request.content.decode())
-        if form["grant_type"] == ["refresh_token"]:
-            if self.refresh_error:
-                return httpx.Response(400, json={"error": self.refresh_error})
-            return httpx.Response(200, json={"access_token": "fresh", "expires_in": 3599, "scope": self.step2_scope})
-        if form["code"] == ["c1"]:
-            return httpx.Response(200, json={"access_token": "a1", "expires_in": 3599, "scope": BASIC})
-        return httpx.Response(
-            200,
-            json={"access_token": "a2", "expires_in": 3599, "scope": self.step2_scope, "refresh_token": "the-refresh"},
-        )
-
-    def userinfo(self, request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json={"sub": self.sub, "email": self.email, "name": "Hajin", "picture": "https://pic"})
-
-
-@pytest.fixture
-def google():
-    with respx.mock(assert_all_called=False) as mock:
-        fake = FakeGoogle("me@example.com", "sub-me")
-        mock.post(TOKEN_URL).mock(side_effect=fake.token)
-        mock.get(USERINFO_URL).mock(side_effect=fake.userinfo)
-        yield fake
-
-
-def _state_of(location: str) -> str:
-    return parse_qs(urlparse(location).query)["state"][0]
-
-
-async def _start(client: httpx.AsyncClient) -> str:
-    response = await client.get("/api/auth/google/login")
-    assert response.status_code == 302
-    location = response.headers["location"]
-    assert location.startswith(AUTH_URL)
-    query = parse_qs(urlparse(location).query)
-    assert query["prompt"] == ["select_account"]
-    assert query["redirect_uri"] == ["http://localhost:5173/api/auth/google/callback"]
-    return _state_of(location)
-
-
-async def _callback(client: httpx.AsyncClient, **params: str) -> httpx.Response:
-    response = await client.get("/api/auth/google/callback", params=params)
-    assert response.status_code == 302
-    return response
-
-
-async def _register(email: str) -> None:
-    assert await users_cli.run("add", email) == 0
-
-
-async def _set(email: str, command: str) -> None:
-    assert await users_cli.run(command, email) == 0
 
 
 # --- not registered / disabled -------------------------------------------------

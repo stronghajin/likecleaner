@@ -11,7 +11,7 @@ import httpx
 from fastapi import FastAPI
 from starlette.middleware.sessions import SessionMiddleware
 
-from app.api import auth, health
+from app.api import auth, health, quota, youtube
 from app.core.config import get_settings
 from app.core.db import engine
 from app.core.errors import register_error_handlers
@@ -55,3 +55,5 @@ app.add_middleware(
 )
 app.include_router(health.router)
 app.include_router(auth.router)
+app.include_router(youtube.router)
+app.include_router(quota.router)

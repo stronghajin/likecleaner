@@ -76,11 +76,11 @@ export function PlaylistsProvider({ children }: { children: ReactNode }) {
   }, [refreshQuota])
 
   const loadItems = useCallback(
-    (id: string) => {
+    (id: string, refresh = false) => {
       setItemsLoading(true)
       setItemsError('')
       api
-        .getPlaylistItems(id)
+        .getPlaylistItems(id, { refresh })
         .then(
           (loaded) => {
             setItemsById((current) => ({ ...current, [id]: loaded }))
@@ -112,7 +112,7 @@ export function PlaylistsProvider({ children }: { children: ReactNode }) {
   )
 
   const resync = useCallback(() => {
-    if (activeId) loadItems(activeId)
+    if (activeId) loadItems(activeId, true)
   }, [activeId, loadItems])
 
   const removeItems = useCallback(

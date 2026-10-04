@@ -80,11 +80,12 @@ export function LikedVideosProvider({ children }: { children: ReactNode }) {
     [deselect],
   )
 
-  const resync = useCallback(async () => {
+  // `refresh` = Resync: ask YouTube again even if the server still has the list (DECISIONS.md 58).
+  const load = useCallback(async (refresh: boolean) => {
     setLoading(true)
     setError('')
     try {
-      const loaded = await api.getLikedVideos()
+      const loaded = await api.getLikedVideos({ refresh })
       setVideos(loaded)
       // Drop selections for videos that are no longer liked.
       const stillLiked = new Set(loaded.map((v) => v.id))
@@ -97,12 +98,14 @@ export function LikedVideosProvider({ children }: { children: ReactNode }) {
     }
   }, [refreshQuota, keepOnly])
 
+  const resync = useCallback(() => load(true), [load])
+
   useEffect(() => {
-    // Load once only: every load uses quota.
+    // Load once only: every load from YouTube uses quota.
     if (started.current) return
     started.current = true
-    resync()
-  }, [resync])
+    load(false)
+  }, [load])
 
   return (
     <LikedVideosContext

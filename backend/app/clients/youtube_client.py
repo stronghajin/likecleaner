@@ -59,13 +59,13 @@ class YouTubeClient:
         )
         return [_video(item) for item in data.get("items", [])]
 
-    async def list_video_categories(self, access_token: str, category_ids: list[str]) -> list[YouTubeCategory]:
-        # English names (DECISIONS.md 46).
-        data = await self._get(
-            access_token,
-            "videoCategories",
-            {"part": "snippet", "id": ",".join(category_ids), "hl": "en", "regionCode": "US"},
-        )
+    async def list_video_categories(
+        self, access_token: str, category_ids: list[str] | None = None
+    ) -> list[YouTubeCategory]:
+        """English names (DECISIONS.md 46). Without ids: every US category. YouTube refuses `id` with `regionCode`."""
+        params = {"part": "snippet", "hl": "en"}
+        params |= {"id": ",".join(category_ids)} if category_ids else {"regionCode": "US"}
+        data = await self._get(access_token, "videoCategories", params)
         return [YouTubeCategory(id=item["id"], title=item["snippet"]["title"]) for item in data.get("items", [])]
 
     async def list_playlists(self, access_token: str, page_token: str | None = None) -> YouTubePlaylistPage:

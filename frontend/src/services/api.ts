@@ -8,6 +8,11 @@ import type { CreateJobInput, Job, Playlist, PlaylistItem, Quota, User, Video } 
  * Each method notes what replaces it in Phase 2:
  *   backend endpoint → YouTube / Google call behind it → quota units (SPEC.md 4-2).
  */
+export interface LoadOptions {
+  /** Resync: load again from YouTube even if the server still has the list in memory. */
+  refresh?: boolean
+}
+
 export interface LikeCleanerApi {
   /**
    * Signed-in user (with status, DECISIONS.md 56), or null when signed out.
@@ -29,18 +34,19 @@ export interface LikeCleanerApi {
   signOut(): Promise<void>
 
   /**
-   * Phase 2: GET /api/quota → no YouTube call (sums today's `quota_usage` rows, PT day) → 0 units.
+   * GET /api/quota → no YouTube call (sums today's `quota_usage` rows, PT day) → 0 units.
    */
   getQuota(): Promise<Quota>
 
   /**
-   * Loads the full liked list from YouTube (uses quota). Call once after sign-in and on Resync;
-   * filtering, sorting and paging happen on the returned list.
+   * Loads the full liked list (uses quota). Call once after sign-in and on Resync (`refresh: true`);
+   * filtering, sorting and paging happen on the returned list. Without `refresh` the server may answer
+   * from its memory at 0 units (DECISIONS.md 58). YouTube returns only the latest ~1,000 (DECISIONS.md 52).
    * Phase 2: GET /api/likes → `videos.list` (myRating=like, part=snippet,contentDetails,
    * maxResults=50, every page) + `videoCategories.list` → 1 unit per 50 videos + 1
    * (about 21 units for 1,000 likes).
    */
-  getLikedVideos(): Promise<Video[]>
+  getLikedVideos(options?: LoadOptions): Promise<Video[]>
 
   /**
    * Phase 2: GET /api/playlists → `playlists.list` (mine=true, part=snippet,contentDetails,
@@ -49,12 +55,13 @@ export interface LikeCleanerApi {
   getPlaylists(): Promise<Playlist[]>
 
   /**
-   * Loads every item of one playlist (uses quota). Call on open and on Resync.
+   * Loads every item of one playlist (uses quota). Call on open and on Resync (`refresh: true`).
+   * Without `refresh` the server may answer from its memory at 0 units (DECISIONS.md 58).
    * Phase 2: GET /api/playlists/{playlistId}/items → `playlistItems.list` (every page) + `videos.list`
    * (id=…, for category and duration, DECISIONS.md 6) → 1 unit per 50 items + 1 unit per 50
    * available videos.
    */
-  getPlaylistItems(playlistId: string): Promise<PlaylistItem[]>
+  getPlaylistItems(playlistId: string, options?: LoadOptions): Promise<PlaylistItem[]>
 
   /**
    * Starts a background job. Fails if a job is already running or quota is not enough.

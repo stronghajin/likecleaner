@@ -190,10 +190,17 @@ async def test_error_without_json_body_still_has_the_common_shape(http):
 @respx.mock
 async def test_categories_are_asked_in_english(http):
     route = respx.get(f"{API_URL}/videoCategories").respond(json={"items": [{"id": "10", "snippet": {"title": "Music"}}]})
-    categories = await YouTubeClient(http).list_video_categories("at", ["10"])
+    categories = await YouTubeClient(http).list_video_categories("at")
     params = route.calls.last.request.url.params
     assert (params["hl"], params["regionCode"]) == ("en", "US")
+    assert "id" not in params
     assert categories[0].title == "Music"
+
+    # By id: YouTube refuses id together with regionCode.
+    await YouTubeClient(http).list_video_categories("at", ["10", "44"])
+    params = route.calls.last.request.url.params
+    assert (params["hl"], params["id"]) == ("en", "10,44")
+    assert "regionCode" not in params
 
 
 # --- Mail and encryption --------------------------------------------------
