@@ -13,8 +13,8 @@
 | **P2-2 PoC 검증** (완료, `POC_RESULTS.md`) | 기획서 14장 5가지를 실제 계정으로 확인. `clients` 계층(Google 로그인, YouTube, 메일)을 먼저 만들어 그것으로 검증. 결과는 `docs/POC_RESULTS.md`, 설계 변경은 DECISIONS.md에 기록 | 5가지 결과 기록. 특히 삭제/비공개 영상 판정 방법, `position=0` 오류 여부. 14장 2번은 테스트 상태로 확인하고, In production 확인은 P2-7(DECISIONS 51) | B, C, D, 브라우저 로그인 |
 | **P2-3 로그인과 사용자 관리** | 2단계 Google 로그인(기본 정보 → `active`만 YouTube 권한, 처음 한 번, DECISIONS 56·57), 7일 세션 쿠키(44), `/api/me`, 로그아웃, refresh token 암호화 저장과 갱신, 권한 끊김 시 재동의(45), `active` 검사, 사용자 관리 명령(`scripts/users.py`), 화면은 로그인만 실제 연결(`npm run dev:real`) | 등록 안 됨 → Access Denied(내 이메일) → `add` → YouTube 권한 → 메인 화면 → `disable` → Access Denied → `enable` | E, 내 계정으로 확인 |
 | **P2-4 조회 API** (완료) | `GET /api/likes`(끝 페이지까지, 최근 약 1,000개 DECISIONS 52 + 카테고리 이름, 서버 메모리 보관, DECISIONS 46), `/api/playlists`, `/api/playlists/{id}/items`(+ `videos.list`, DECISIONS 6), `/api/quota`(태평양 시간 하루). 실패 호출을 포함한 모든 호출의 units 기록 | 실제 계정의 좋아요와 재생목록 수가 YouTube와 같고, 할당량이 실제 호출량과 맞음 | 화면 숫자 비교 |
-| **P2-5 작업 처리** | `POST /api/jobs`(1인 1작업, 100개, 할당량 예상 검사, DECISIONS 30), 워커(사용자별 동시 진행, 항목은 순차, DECISIONS 41). 처리 규칙은 아래 참고 | 자동 테스트로 규칙 확인 + 실제 계정에서 2~3개 소량 실행 | 테스트 계정 확인 |
-| **P2-6 프론트엔드 교체** | services에 실제 API 구현 추가, 설정 하나로 mock / 실제 전환(DECISIONS 47), `signIn`을 Google 페이지 이동으로, Vite 프록시(DECISIONS 35), 로그인 만료 시 로그인 화면, 조회 간격 1.5초(48) | `TEST_SCENARIOS.md` 중 실제 계정으로 가능한 것이 그대로 동작 | 화면 확인 |
+| **P2-5 작업 처리** (구현 완료, 실제 계정 확인 중. 작업 버튼의 화면 연결을 P2-6에서 앞당김) | `POST /api/jobs`(1인 1작업, 100개, 할당량 예상 검사, DECISIONS 30), 워커(사용자별 동시 진행, 항목은 순차, DECISIONS 41). 처리 규칙은 아래 참고 | 자동 테스트로 규칙 확인 + 실제 계정에서 2~3개 소량 실행 | 테스트 계정 확인 |
+| **P2-6 프론트엔드 교체** | (작업 생성·Retry Failed·진행 조회, 조회 간격 1.5초, DECISIONS 55의 화면 갱신은 P2-5에서 먼저 함) services에 실제 API 구현 추가, 설정 하나로 mock / 실제 전환(DECISIONS 47), `signIn`을 Google 페이지 이동으로, Vite 프록시(DECISIONS 35), 로그인 만료 시 로그인 화면, 조회 간격 1.5초(48) | `TEST_SCENARIOS.md` 중 실제 계정으로 가능한 것이 그대로 동작 | 화면 확인 |
 | **P2-7 운영 마무리** | 배포처 결정과 배포(HTTPS, DECISIONS 34), FastAPI가 화면 파일도 제공(35), 운영 주소로 Google 설정과 앱 게시(DECISIONS 51, 기획서 14장 2번 확인), 30일 데이터 매일 삭제 확인, DB 백업, 로그, PHASE1_NOTES 4장 "공개 배포 전" 확인 | 지인 계정이 실제 주소로 가입 → 승인 → 정리 작업 완료 | 호스팅 가입, F, 지인 테스트 |
 
 P2-5 처리 규칙:
@@ -24,7 +24,7 @@ P2-5 처리 규칙:
 - 429는 2/4/8초 재시도(DECISIONS 28)
 - quotaExceeded면 중단하고 남은 항목 `not_processed`
 - `Retry Failed`
-- 서버가 재시작되면 진행 중이던 작업 이어서 처리
+- 서버가 재시작되면 진행 중이던 작업은 중단 처리하고 `Retry Failed`로 이어서 하게 함(DECISIONS 63, "이어서 처리"를 대체)
 - 30일 지난 데이터 매일 삭제
 
 ---

@@ -181,3 +181,17 @@
     - Playlists: `(항목 수 ÷ 50, 올림) + (볼 수 있는 영상 수 ÷ 50, 올림)`. 열려 있는 재생목록 기준이다.
     - 남은 할당량이 예상보다 적으면 `Resync`를 비활성화하고 버튼 왼쪽에 빨간 글씨 `Not enough quota to resync (needs about N units).`를 표시한다.
     - 로그인 직후 처음 불러오는 동안 로딩 문구 아래에 작게 `The first load after sign-in uses up to about 200 units of today's quota.`를 표시한다(최대 5,000개 기준 202 units를 반올림).
+
+## P2-5 작업 처리 (2026-10-05)
+
+63. 작업 처리 세부 사항
+    - **서버 재시작 시 중단 처리(사용자 결정).** 서버가 켜질 때 `running`으로 남은 작업은 이어서 하지 않고 `stopped`로 바꾼다. 남은 항목은 `Not processed`, 작업을 멈춘 오류는 `503 serverRestarted` `The server restarted while this job was running. Use Retry Failed to continue.`이다. 끊긴 순간 처리 중이던 항목은 실제로는 처리됐어도 `Not processed`로 보일 수 있다. 이어서 할지는 사용자가 `Retry Failed`로 정한다. (PHASE2_PLAN의 "이어서 처리"를 대체)
+    - **429는 항목 전체가 아니라 그 호출만** 2/4/8초 뒤 다시 시도한다. 이미 성공한 "재생목록 추가"를 다시 해서 영상이 두 번 들어가는 일을 막기 위해서다. 대기 중에는 `jobs.rate_limit_*`에 기록해 진행 패널에 `Rate limited. Retrying in N s...`를 보여준다.
+    - **작업을 멈추는 오류:** `quotaExceeded`, 3번 재시도 후에도 나는 429, YouTube 권한 끊김(`youtubeReauthRequired`) 등 다음 항목도 실패할 것이 확실한 오류. 그 밖의 오류(404 등)는 그 항목만 `Failed`로 두고 계속한다.
+    - **멈출 때 반쯤 된 항목을 남기지 않는다.** 이동+좋아요 취소에서 추가는 됐는데 좋아요 취소에서 작업이 멈추면, 먼저 추가한 항목을 지운다(롤백). 성공하면 `Failed`, 실패하면 `Rollback failed`로 두고 작업을 멈춘다.
+    - **이동 작업의 중복 확인**은 대상 재생목록을 YouTube에서 새로 읽는다(재생목록 화면을 여는 것과 같은 조회, `videos.list` 포함). 그래서 작업이 끝나면 서버 메모리에 대상 재생목록이 최신으로 있고, 화면은 YouTube를 다시 부르지 않고 서버 메모리에서 결과를 받는다(0 units, 몇 초 지연 문제 없음). 대신 예상 소모량의 중복 확인 부분이 `항목 50개당 1`에서 `항목 50개당 1 + 50개당 1`로 늘었다(프론트, 서버, mock 모두 같은 공식).
+    - 성공한 항목은 서버 메모리에 바로 반영한다(DECISIONS 55): 좋아요 취소 → 좋아요 목록과 전체 좋아요 수에서 뺀다, 재생목록 삭제 → 그 재생목록에서 뺀다, 추가 → 대상 재생목록 맨 앞(자동 정렬이면 끝)에 넣는다.
+    - 서버도 작업을 만들 때 1인 1작업, 1~100개, 할당량(DB 기록 기준)을 다시 확인한다. 동시에 두 번 눌러도 작업은 하나만 생긴다.
+    - 작업 화면 연결(P2-6에서 앞당김): `POST /api/jobs`, `POST /api/jobs/{id}/retry`, `GET /api/jobs/latest`. 진행 상황은 실제 모드 1.5초, mock 0.7초마다 조회한다(DECISIONS 48).
+    - DECISIONS 55의 `Resync` 대기: 작업이 끝난 시각(`finishedAt`)에서 10초 안에 누르면 버튼이 `Syncing with YouTube...`로 바뀌고 꺼졌다가, 10초가 되면 자동으로 다시 불러온다.
+    - 30일 지난 `jobs`, `job_items`, `quota_usage`는 서버가 켜질 때 한 번, 그 뒤 24시간마다 지운다.

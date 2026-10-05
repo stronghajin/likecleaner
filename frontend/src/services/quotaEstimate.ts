@@ -15,11 +15,14 @@ export const pagesFor = (count: number) => Math.max(1, Math.ceil(count / LIST_PA
 
 /**
  * Worst-case units for an action (SPEC.md 4-3): includes lookup calls, excludes rollback.
- * `targetItemCount` is the destination playlist size, needed for the duplicate check of move jobs.
+ * `targetItemCount` is the destination playlist size, needed for the duplicate check of move jobs:
+ * playlistItems.list pages + videos.list pages for its details (DECISIONS.md 63).
  * Move jobs also count one failed "add at the top" call, in case the playlist is auto-sorted (SPEC.md 6-6).
+ * The backend checks the same formula (backend/app/services/job_estimate.py).
  */
 export function estimateUnits(type: JobType, count: number, targetItemCount = 0): number {
-  const moveSetup = pagesFor(targetItemCount) * QUOTA_COST.listPage + QUOTA_COST.insert
+  const detailPages = targetItemCount > 0 ? pagesFor(targetItemCount) : 0
+  const moveSetup = (pagesFor(targetItemCount) + detailPages) * QUOTA_COST.listPage + QUOTA_COST.insert
   switch (type) {
     case 'remove_like':
       return count * QUOTA_COST.rate

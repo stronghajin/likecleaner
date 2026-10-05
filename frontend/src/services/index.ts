@@ -12,6 +12,9 @@ export const isMockMode = import.meta.env.DEV && import.meta.env.VITE_API_MODE !
 
 export const api: LikeCleanerApi = isMockMode ? mockApi : realApi
 
+/** How often a running job is polled: 1.5 s against the real backend (DECISIONS.md 48). */
+export const JOB_POLL_MS = isMockMode ? 700 : 1500
+
 /** Mock mode only: switches for the DEV panel (DECISIONS.md 14, 28, 47). */
 export const devTools = { getDevSettings, setDevSettings, resetMockData, setQuotaLeft }
 export type { DevSettings, FailureMode, NextAction } from './mock/devSettings'

@@ -34,8 +34,11 @@ interface PlaylistsState {
 
   /** After a removal job: takes removed entries out without reloading. */
   removeItems: (playlistId: string, playlistItemIds: string[]) => void
-  /** After videos were added to a playlist: reload it (and the counts) next time it is shown. */
-  invalidate: (playlistId: string) => void
+  /**
+   * After videos were added to a playlist: load it again without `refresh`, so the server answers from
+   * its memory, which the job already updated (DECISIONS.md 55). Updates the count too.
+   */
+  refreshFromServer: (playlistId: string) => void
 }
 
 const PlaylistsContext = createContext<PlaylistsState | null>(null)
@@ -131,18 +134,20 @@ export function PlaylistsProvider({ children }: { children: ReactNode }) {
     [itemsById, deselect],
   )
 
-  const invalidate = useCallback(
+  const refreshFromServer = useCallback(
     (playlistId: string) => {
-      playlistsStale.current = true
-      setItemsById((current) => {
-        if (!current[playlistId]) return current
-        const rest = { ...current }
-        delete rest[playlistId]
-        return rest
-      })
-      if (playlistId === activeId) loadItems(playlistId)
+      api.getPlaylistItems(playlistId).then(
+        (loaded) => {
+          setItemsById((current) => ({ ...current, [playlistId]: loaded }))
+          setPlaylists(
+            (current) => current?.map((p) => (p.id === playlistId ? { ...p, itemCount: loaded.length } : p)) ?? null,
+          )
+        },
+        // Keep what is shown; Resync loads it again.
+        () => {},
+      )
     },
-    [activeId, loadItems],
+    [],
   )
 
   const setPageSize = (size: PageSize) => {
@@ -168,7 +173,7 @@ export function PlaylistsProvider({ children }: { children: ReactNode }) {
         setPageSize,
         selection,
         removeItems,
-        invalidate,
+        refreshFromServer,
       }}
     >
       {children}

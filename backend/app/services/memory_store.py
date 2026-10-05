@@ -9,8 +9,8 @@ import time
 from dataclasses import dataclass
 from typing import Generic, TypeVar
 
-from app.schemas.playlist import PlaylistItemResponse
-from app.schemas.video import LikedVideosResponse
+from app.schemas.playlist import PlaylistItemResponse, PlaylistResponse
+from app.schemas.video import LikedVideosResponse, VideoResponse
 
 T = TypeVar("T")
 
@@ -25,6 +25,8 @@ class _Entry(Generic[T]):
 
 _likes: dict[int, _Entry[LikedVideosResponse]] = {}
 _playlist_items: dict[tuple[int, str], _Entry[list[PlaylistItemResponse]]] = {}
+# The last playlists.list answer, for job titles and sizes only. GET /api/playlists still asks YouTube.
+_playlists: dict[int, _Entry[list[PlaylistResponse]]] = {}
 # YouTube category id -> English name. Not personal data, shared by everyone.
 _category_names: dict[str, str] = {}
 
@@ -51,11 +53,69 @@ def set_playlist_items(user_id: int, playlist_id: str, items: list[PlaylistItemR
     _playlist_items[(user_id, playlist_id)] = _Entry(items, time.monotonic())
 
 
+def get_playlists(user_id: int) -> list[PlaylistResponse] | None:
+    return _fresh(_playlists.get(user_id))
+
+
+def set_playlists(user_id: int, playlists: list[PlaylistResponse]) -> None:
+    _playlists[user_id] = _Entry(playlists, time.monotonic())
+
+
+# ---- Job results, applied as each item succeeds (DECISIONS.md 55): no reload from YouTube needed. ----
+
+
+def find_liked_video(user_id: int, video_id: str) -> VideoResponse | None:
+    likes = get_likes(user_id)
+    return next((v for v in likes.videos if v.id == video_id), None) if likes else None
+
+
+def remove_like(user_id: int, video_id: str) -> None:
+    entry = _likes.get(user_id)
+    if entry is None or not any(v.id == video_id for v in entry.value.videos):
+        return
+    likes = entry.value
+    entry.value = likes.model_copy(
+        update={
+            "videos": [v for v in likes.videos if v.id != video_id],
+            "total_liked": likes.total_liked - 1 if likes.total_liked else likes.total_liked,
+        }
+    )
+
+
+def add_playlist_item(user_id: int, playlist_id: str, item: PlaylistItemResponse, *, at_top: bool) -> None:
+    entry = _playlist_items.get((user_id, playlist_id))
+    if entry is not None:
+        items = [item, *entry.value] if at_top else [*entry.value, item]
+        entry.value = _renumbered(items)
+    _change_count(user_id, playlist_id, +1)
+
+
+def remove_playlist_item(user_id: int, playlist_id: str, playlist_item_id: str) -> None:
+    entry = _playlist_items.get((user_id, playlist_id))
+    if entry is not None:
+        entry.value = _renumbered([i for i in entry.value if i.playlist_item_id != playlist_item_id])
+    _change_count(user_id, playlist_id, -1)
+
+
+def _renumbered(items: list[PlaylistItemResponse]) -> list[PlaylistItemResponse]:
+    return [i if i.position == n else i.model_copy(update={"position": n}) for n, i in enumerate(items)]
+
+
+def _change_count(user_id: int, playlist_id: str, delta: int) -> None:
+    entry = _playlists.get(user_id)
+    if entry is not None:
+        entry.value = [
+            p.model_copy(update={"item_count": max(0, p.item_count + delta)}) if p.id == playlist_id else p
+            for p in entry.value
+        ]
+
+
 def category_names() -> dict[str, str]:
     return _category_names
 
 
 def forget_user(user_id: int) -> None:
     _likes.pop(user_id, None)
+    _playlists.pop(user_id, None)
     for key in [key for key in _playlist_items if key[0] == user_id]:
         del _playlist_items[key]

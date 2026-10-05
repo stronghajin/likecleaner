@@ -335,9 +335,11 @@ function processItem(job: Job, item: JobItem): ApiErrorInfo | null {
     return null
   }
 
-  // move / move_and_unlike: check what is already in the playlist once, at the start.
+  // move / move_and_unlike: check what is already in the playlist once, at the start
+  // (playlistItems.list pages + videos.list pages for details, like the backend, DECISIONS.md 63).
   if (!checkedJobs.has(job.id)) {
-    const err = callYouTube(pagesFor(playlist.items.length) * QUOTA_COST.listPage)
+    const available = playlist.items.filter((i) => !i.unavailable).length
+    const err = callYouTube((pagesFor(playlist.items.length) + (available ? pagesFor(available) : 0)) * QUOTA_COST.listPage)
     if (err) return err
     checkedJobs.add(job.id)
   }

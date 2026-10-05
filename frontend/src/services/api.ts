@@ -73,8 +73,9 @@ export interface LikeCleanerApi {
    * Starts a background job. Fails if a job is already running or quota is not enough.
    * Phase 2: POST /api/jobs → the background worker calls, one item at a time:
    *   - remove_like: `videos.rate` (rating=none) → 50 per video
-   *   - move: `playlistItems.list` (duplicate check) + `playlistItems.insert` (position=0) → 1 per 50
-   *     playlist items + 50 per video (+50 once if the playlist is auto-sorted, DECISIONS.md 30)
+   *   - move: `playlistItems.list` + `videos.list` (duplicate check, DECISIONS.md 63) +
+   *     `playlistItems.insert` (position=0) → 1 per 50 playlist items + 1 per 50 watchable items
+   *     + 50 per video (+50 once if the playlist is auto-sorted, DECISIONS.md 30)
    *   - move_and_unlike: the same as move + `videos.rate` → +50 per video; if that fails,
    *     `playlistItems.delete` rolls the add back → +50 (SPEC.md 6-7)
    *   - playlist_remove: `playlistItems.delete` → 50 per item

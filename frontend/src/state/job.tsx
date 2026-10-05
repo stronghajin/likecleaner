@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { api } from '../services'
+import { api, JOB_POLL_MS } from '../services'
 import type { ApiErrorInfo, Job } from '../services'
 import { useLikedVideos } from './likedVideos'
 import { usePlaylists } from './playlists'
@@ -9,7 +9,6 @@ import { useQuota } from './quota'
 // The user's latest job (SPEC.md 8, DECISIONS.md 11–12): loaded on sign-in so results survive a
 // reload, polled while it runs, and shown in the progress panel.
 
-const POLL_MS = 700
 const QUOTA_REFRESH_MS = 5000
 
 interface JobState {
@@ -41,12 +40,12 @@ function removedEntryIds(job: Job): string[] {
 
 export function JobProvider({ children }: { children: ReactNode }) {
   const { removeVideos } = useLikedVideos()
-  const { removeItems, invalidate } = usePlaylists()
+  const { removeItems, refreshFromServer } = usePlaylists()
   const { refreshQuota } = useQuota()
   // Latest list updaters, read through a ref so `apply` stays stable and effects do not re-run.
-  const updaters = useRef({ removeVideos, removeItems, invalidate })
+  const updaters = useRef({ removeVideos, removeItems, refreshFromServer })
   useEffect(() => {
-    updaters.current = { removeVideos, removeItems, invalidate }
+    updaters.current = { removeVideos, removeItems, refreshFromServer }
   })
   const [job, setJob] = useState<Job | null>(null)
   const [panelOpen, setPanelOpen] = useState(false)
@@ -62,15 +61,16 @@ export function JobProvider({ children }: { children: ReactNode }) {
       jobRef.current = next
       setJob(next)
       if (!next) return
-      const { removeVideos, removeItems, invalidate } = updaters.current
+      const { removeVideos, removeItems, refreshFromServer } = updaters.current
       removeVideos(unlikedIds(next))
       if (next.targetPlaylistId) removeItems(next.targetPlaylistId, removedEntryIds(next))
       const justEnded = previous?.id === next.id && previous.status === 'running' && next.status !== 'running'
       if (justEnded) {
         refreshQuota()
-        // Videos were added to this playlist: reload it when it is shown.
+        // Videos were added: take the playlist as the server now has it, without asking YouTube,
+        // which shows changes only after a few seconds (DECISIONS.md 55).
         if (next.targetPlaylistId && (next.type === 'move' || next.type === 'move_and_unlike')) {
-          invalidate(next.targetPlaylistId)
+          refreshFromServer(next.targetPlaylistId)
         }
         if (next.fatalError) setFatalError(next.fatalError)
       } else if (next.status === 'running' && Date.now() - lastQuotaRefresh.current > QUOTA_REFRESH_MS) {
@@ -97,7 +97,7 @@ export function JobProvider({ children }: { children: ReactNode }) {
     if (!running) return
     const timer = setInterval(() => {
       api.getLatestJob().then(apply, () => {})
-    }, POLL_MS)
+    }, JOB_POLL_MS)
     return () => clearInterval(timer)
   }, [running, apply])
 

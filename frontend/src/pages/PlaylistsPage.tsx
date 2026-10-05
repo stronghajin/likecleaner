@@ -233,7 +233,6 @@ export default function PlaylistsPage() {
                   onClick={resync}
                   loading={itemsLoading && items !== null}
                   disabled={itemsLoading}
-                  jobRunning={running}
                 />
               </div>
 

@@ -22,6 +22,7 @@ async def list_playlists(db: AsyncSession, http: httpx.AsyncClient, user_id: int
         playlists.extend(PlaylistResponse(id=p.id, title=p.title, item_count=p.item_count) for p in page.items)
         page_token = page.next_page_token
         if not page_token:
+            memory_store.set_playlists(user_id, playlists)  # titles and sizes for jobs
             return playlists
 
 

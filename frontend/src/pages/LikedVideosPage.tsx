@@ -234,7 +234,6 @@ export default function LikedVideosPage() {
               units={likesLoadUnits(videos.length + hiddenUnavailable)}
               onClick={resync}
               loading={loading}
-              jobRunning={running}
             />
           </div>
         </div>

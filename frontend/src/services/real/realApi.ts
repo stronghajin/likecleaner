@@ -1,14 +1,8 @@
-// The real backend (Phase 2). Sign-in (P2-3) and reading (P2-4) are connected; jobs arrive in P2-5.
+// The real backend (Phase 2): sign-in (P2-3), reading (P2-4) and jobs (P2-5).
 import type { LikeCleanerApi } from '../api'
 import { ApiError } from '../errors'
-import type { ApiErrorInfo, LikedVideosResult, Playlist, PlaylistItem, Quota, User } from '../types'
+import type { ApiErrorInfo, Job, LikedVideosResult, Playlist, PlaylistItem, Quota, User } from '../types'
 import { request } from './http'
-
-function notAvailableYet(): Promise<never> {
-  return Promise.reject(
-    new ApiError({ status: 501, reason: 'notAvailableYet', message: 'This part is not connected to the server yet.' }),
-  )
-}
 
 const refreshQuery = (refresh?: boolean) => (refresh ? '?refresh=true' : '')
 
@@ -71,7 +65,15 @@ export const realApi: LikeCleanerApi = {
     )
   },
 
-  createJob: notAvailableYet,
-  retryFailedItems: notAvailableYet,
-  getLatestJob: notAvailableYet,
+  createJob(input) {
+    return request<Job>('POST', '/api/jobs', input)
+  },
+
+  retryFailedItems(jobId) {
+    return request<Job>('POST', `/api/jobs/${encodeURIComponent(jobId)}/retry`)
+  },
+
+  getLatestJob() {
+    return request<Job | null>('GET', '/api/jobs/latest')
+  },
 }
