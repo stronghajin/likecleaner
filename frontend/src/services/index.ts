@@ -1,26 +1,20 @@
 // The only door between screens and data. Screens import from 'services', never from 'services/mock' or 'services/real'.
-import type { LikeCleanerApi } from './api'
-import { getDevSettings, setDevSettings } from './mock/devSettings'
-import { mockApi, resetMockData, setQuotaLeft } from './mock/mockApi'
-import { realApi } from './real/realApi'
+import { isMockMode } from './source'
 
 /**
- * Mock or real backend (DECISIONS.md 47). `npm run dev` = mock, `npm run dev:real` = real.
- * Production builds always use the real backend.
+ * Mock or real backend (DECISIONS.md 47): `api`, `isMockMode` and the DEV panel's `devTools`.
+ * Production builds always use the real backend, without any mock code (DECISIONS.md 64).
  */
-export const isMockMode = import.meta.env.DEV && import.meta.env.VITE_API_MODE !== 'real'
-
-export const api: LikeCleanerApi = isMockMode ? mockApi : realApi
+export { api, devTools, isMockMode } from './source'
 
 /** How often a running job is polled: 1.5 s against the real backend (DECISIONS.md 48). */
 export const JOB_POLL_MS = isMockMode ? 700 : 1500
 
-/** Mock mode only: switches for the DEV panel (DECISIONS.md 14, 28, 47). */
-export const devTools = { getDevSettings, setDevSettings, resetMockData, setQuotaLeft }
 export type { DevSettings, FailureMode, NextAction } from './mock/devSettings'
 
 export type { LikeCleanerApi, LikedLoadOptions, LoadOptions } from './api'
 export { ApiError } from './errors'
+export { onSessionEnded } from './sessionEvents'
 export { isRetryable, summarizeJob } from './jobSummary'
 export type { JobCounts } from './jobSummary'
 export {

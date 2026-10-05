@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { api } from '../services'
+import { api, onSessionEnded } from '../services'
 import type { User, UserStatus } from '../services'
 
 interface Session {
@@ -10,6 +10,8 @@ interface Session {
   signOut: () => Promise<void>
   /** Re-reads the user (e.g. after the dev panel changes the user status). */
   refresh: () => Promise<void>
+  /** True after the server ended the session while the app was open (DECISIONS.md 64). */
+  sessionEnded: boolean
 }
 
 const SessionContext = createContext<Session | null>(null)
@@ -23,6 +25,7 @@ export const HOME_FOR_STATUS: Record<UserStatus, string> = {
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null | undefined>(undefined)
+  const [sessionEnded, setSessionEnded] = useState(false)
 
   const refresh = useCallback(() => api.getCurrentUser().then(setUser, () => setUser(null)), [])
 
@@ -30,8 +33,21 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     refresh()
   }, [refresh])
 
+  // Signed out by the server (7 days passed, or the YouTube permission was cut): back to the sign-in screen.
+  // Sign out here too, so the next sign-in starts clean and asks for YouTube access again if needed.
+  useEffect(
+    () =>
+      onSessionEnded(() => {
+        setSessionEnded(true)
+        api.signOut().catch(() => {})
+        setUser(null)
+      }),
+    [],
+  )
+
   const signIn = useCallback(async () => {
     const signedIn = await api.signIn()
+    setSessionEnded(false)
     setUser(signedIn)
     return signedIn
   }, [])
@@ -41,7 +57,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setUser(null)
   }, [])
 
-  return <SessionContext value={{ user, signIn, signOut, refresh }}>{children}</SessionContext>
+  return <SessionContext value={{ user, signIn, signOut, refresh, sessionEnded }}>{children}</SessionContext>
 }
 
 export function useSession(): Session {

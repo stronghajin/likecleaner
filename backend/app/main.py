@@ -12,7 +12,7 @@ import httpx
 from fastapi import FastAPI
 from starlette.middleware.sessions import SessionMiddleware
 
-from app.api import auth, health, jobs, quota, youtube
+from app.api import app_info, auth, health, jobs, quota, youtube
 from app.core.config import get_settings
 from app.core.db import SessionFactory, engine
 from app.core.errors import register_error_handlers
@@ -63,6 +63,7 @@ app.add_middleware(
     https_only=get_settings().app_base_url.startswith("https://"),
 )
 app.include_router(health.router)
+app.include_router(app_info.router)
 app.include_router(auth.router)
 app.include_router(youtube.router)
 app.include_router(quota.router)

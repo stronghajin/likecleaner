@@ -16,8 +16,9 @@ import { PlaylistsProvider } from './state/playlists'
 import { QuotaProvider } from './state/quota'
 import { HOME_FOR_STATUS, SessionProvider, useSession } from './state/session'
 
-// Dev panel: only in mock mode (DECISIONS.md 47), so production builds leave it out entirely.
-const DevPanel = isMockMode ? lazy(() => import('./components/DevPanel')) : null
+// Dev panel: only in mock mode (DECISIONS.md 47). `import.meta.env.DEV` is false in production builds,
+// so the build drops this import and the panel entirely (DECISIONS.md 64).
+const DevPanel = import.meta.env.DEV && isMockMode ? lazy(() => import('./components/DevPanel')) : null
 
 /** Signed-out users only; signed-in users go to the screen for their status. */
 function SignedOutOnly() {

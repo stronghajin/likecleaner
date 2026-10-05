@@ -1,144 +1,127 @@
 # LikeCleaner
 
 YouTube "좋아요 한 동영상"과 재생목록을 한 화면에서 보고 한꺼번에 정리하는 웹 툴입니다.
-지금은 **Phase 1**(가짜 데이터로 동작하는 화면) 단계입니다. 실제 YouTube 계정에는 아무 영향이 없습니다.
+지금은 **Phase 2**(실제 Google 로그인과 YouTube 연결) 단계입니다. 아직 인터넷에 올리지 않았고, 이 컴퓨터에서만 실행합니다.
 
-## 앱 실행하기
+> ⚠️ **실제 모드에서 누르는 작업(좋아요 취소, 이동, 재생목록에서 제거)은 진짜 YouTube 계정을 바꿉니다.** 연습은 가짜 데이터 모드에서 하세요.
 
-### 처음 한 번만: 준비물
+## 두 가지 실행 방법
 
-- **Node.js**가 설치되어 있어야 합니다. 설치 여부는 아래 2단계에서 `node -v`를 입력해 확인할 수 있습니다. 버전 숫자(예: `v24.21.0`)가 나오면 설치된 것입니다. 설치되어 있지 않으면 https://nodejs.org 에서 **LTS** 버전을 받아 설치하세요.
+| | 실제 모드 | 가짜 데이터 모드 (mock) |
+|---|---|---|
+| 무엇이 보이나 | 내 진짜 좋아요와 재생목록 | 만들어 둔 가짜 계정 |
+| 켜는 것 | 백엔드 + 화면, **터미널 2개** | 화면만, 터미널 1개 |
+| 화면 명령 | `npm run dev:real` | `npm run dev` |
+| YouTube 할당량 | 씀 (목록 불러오기, 작업) | 안 씀 |
+| 오른쪽 아래 DEV 버튼 | 없음 | 있음 (오류 상황 흉내 등) |
+
+어느 쪽이든 브라우저 주소는 **http://localhost:5173** 하나입니다. 실제 모드에서는 화면이 `/api`로 시작하는 요청을 백엔드(8000번)로 넘겨줍니다.
+두 모드를 바꾸는 설정은 `frontend/.env.real`의 `VITE_API_MODE=real` 하나이고, `npm run dev:real`이 이 설정을 씁니다(DECISIONS 47). 인터넷에 올릴 운영용 결과물(`npm run build`)에는 가짜 데이터와 DEV 패널이 아예 들어가지 않습니다(DECISIONS 64).
+
+## 처음 한 번만: 준비
 
 ### 1. 터미널 열기
 
-둘 중 편한 방법을 쓰세요.
-
-- **VS Code에서 (추천):** VS Code로 `likecleaner` 폴더를 연 상태에서, 위쪽 메뉴의 **Terminal → New Terminal**을 누릅니다. 단축키는 `Ctrl` + `` ` ``(숫자 1 왼쪽 키)입니다. 화면 아래쪽에 터미널이 열립니다.
+- **VS Code에서 (추천):** VS Code로 `likecleaner` 폴더를 연 상태에서 위쪽 메뉴의 **Terminal → New Terminal**을 누릅니다. 단축키는 `Ctrl` + `` ` ``(숫자 1 왼쪽 키)입니다. 터미널을 하나 더 열 때는 터미널 오른쪽 위의 `+`를 누릅니다.
 - **Mac의 터미널 앱:** `Cmd` + `Space`를 누르고 `Terminal`을 입력한 뒤 `Enter`를 누릅니다.
 
-### 2. 앱이 있는 폴더로 이동
+### 2. 도구 확인
 
-터미널에 아래 한 줄을 그대로 입력하고 `Enter`를 누르세요.
-
-```
-cd ~/Desktop/likecleaner/frontend
-```
-
-> VS Code 터미널은 보통 이미 `likecleaner` 폴더에서 열리므로 `cd frontend`만 입력해도 됩니다.
-
-### 3. (처음 한 번만) 필요한 파일 설치
+아래 두 줄을 하나씩 입력해 보세요. 버전 숫자가 나오면 설치된 것입니다.
 
 ```
-npm install
-```
-
-1~2분 정도 걸릴 수 있습니다. 다시 설치할 필요는 없습니다. 다만 GitHub에서 새로 받은 직후나, 앱이 실행되지 않고 오류가 날 때는 한 번 더 해 주세요.
-
-### 4. 앱 실행
-
-```
-npm run dev
-```
-
-잠시 뒤 터미널에 아래와 비슷한 줄이 나오면 실행된 것입니다.
-
-```
-➜  Local:   http://localhost:5173/
-```
-
-### 5. 브라우저에서 열기
-
-Chrome 같은 브라우저 주소창에 아래 주소를 입력하세요.
-
-```
-http://localhost:5173
-```
-
-> 터미널의 주소를 `Cmd`를 누른 채 클릭해도 열립니다.
-
-### 6. 종료하기
-
-- 앱을 실행한 터미널을 클릭한 뒤 `Ctrl` + `C`를 누르면 종료됩니다. 터미널에 다시 명령어를 입력할 수 있는 상태가 되면 꺼진 것입니다.
-- 터미널 창이나 VS Code를 닫아도 종료됩니다.
-- 다시 켤 때는 2번(폴더 이동)과 4번(`npm run dev`)만 하면 됩니다.
-
-## 백엔드 서버 실행하기 (Phase 2 개발 중)
-
-Phase 2 작업이 끝나기 전까지 화면은 계속 가짜 데이터로 동작합니다. 백엔드는 따로 켜서 확인합니다.
-파이썬 버전과 가상환경, 패키지 설치는 **uv**라는 도구가 한꺼번에 맡습니다(DECISIONS.md 36). 그래서 `pip`이나 `venv` 명령은 쓰지 않습니다.
-
-### 1. 터미널 열기
-
-**새 터미널**을 엽니다. 화면(`npm run dev`)을 켜 둔 터미널과는 다른 터미널이어야 합니다. VS Code에서는 터미널 오른쪽 위의 `+`를 누르면 됩니다.
-
-### 2. uv 확인 (처음 한 번)
-
-```
+node -v
 uv --version
 ```
 
-`uv 0.x.x`처럼 버전이 나오면 됩니다. `command not found`가 나오면 `docs/PHASE2_PLAN.md`의 "A. uv 설치"를 먼저 하세요.
+- `node`가 없으면 https://nodejs.org 에서 **LTS** 버전을 받아 설치합니다.
+- `uv`가 없으면 `docs/PHASE2_PLAN.md`의 "A. uv 설치"를 따라 합니다. uv는 파이썬 버전, 가상환경, 패키지 설치를 한꺼번에 맡는 도구입니다(DECISIONS 36). 그래서 `pip`이나 `venv` 명령은 쓰지 않습니다.
+- 설치한 직후라면 터미널을 닫았다가 다시 여세요.
 
-### 3. 백엔드 폴더로 이동
+### 3. 화면 쪽 설치
+
+```
+cd ~/Desktop/likecleaner/frontend
+npm install
+```
+
+1~2분 걸릴 수 있습니다.
+
+### 4. 백엔드 쪽 설치
 
 ```
 cd ~/Desktop/likecleaner/backend
-```
-
-### 4. Python 확인 (처음 한 번)
-
-```
-uv run python --version
-```
-
-`Python 3.13.x`가 나오면 됩니다. 컴퓨터에 원래 있던 파이썬(3.9)과는 별개로, uv가 이 프로젝트용 파이썬을 받아 둡니다. 처음에는 내려받느라 조금 걸릴 수 있습니다.
-
-### 5. 가상환경 만들기 + 패키지 설치
-
-처음 한 번, 그리고 GitHub에서 새로 받았거나 패키지 목록이 바뀌었을 때만 실행합니다.
-
-```
 uv sync
 ```
 
-이 명령 하나로 두 가지가 됩니다.
-- `backend/.venv` 폴더(이 프로젝트 전용 가상환경)를 만든다
-- `pyproject.toml`에 적힌 패키지(FastAPI 등)를 설치한다
+`backend/.venv`(이 프로젝트 전용 파이썬 환경)를 만들고 필요한 패키지를 설치합니다. 처음에는 파이썬을 내려받느라 조금 걸릴 수 있습니다. 마지막 줄에 `Installed …`, `Audited …`, `Checked …` 중 하나가 나오면 끝입니다.
 
-마지막 줄에 `Installed … packages`, `Audited … packages`, `Checked … packages` 중 하나가 나오면 끝입니다(이미 설치되어 있으면 Checked/Audited).
+> 3, 4번은 GitHub에서 새로 받은 직후나 실행이 안 되고 오류가 날 때 한 번 더 해 주세요.
 
-### 6. 설정 파일 확인 (처음 한 번)
+### 5. 설정 파일 확인
 
-`backend/.env` 파일이 있어야 합니다. 이 컴퓨터에는 이미 만들어 두었습니다. 다른 컴퓨터라면 `backend/.env.example`을 복사해 `.env`로 이름을 바꾸고, 각 줄 위의 설명대로 값을 채우세요. 이 파일은 GitHub에 올라가지 않으며, 내용을 다른 곳에 붙여 넣지 마세요.
+`backend/.env` 파일이 있어야 합니다. 이 컴퓨터에는 이미 있습니다. 다른 컴퓨터라면 `backend/.env.example`을 복사해 이름을 `.env`로 바꾸고, 각 줄 위의 설명대로 값을 채웁니다.
+- 이 파일에는 비밀값이 들어 있습니다. GitHub에 올라가지 않으며, 내용을 대화창 같은 다른 곳에 붙여 넣지 마세요.
+- 개인정보처리방침에 보이는 연락처 이메일은 이 파일의 `ADMIN_EMAIL`입니다(비우면 `hajin300@gmail.com`).
 
-### 7. 서버 켜기
+## 실제 모드로 켜기 (터미널 2개)
+
+### 터미널 ①: 백엔드
 
 ```
+cd ~/Desktop/likecleaner/backend
 uv run uvicorn app.main:app --reload --port 8000
 ```
 
-`Application startup complete.`가 나오면 켜진 것입니다. 서버가 켜질 때 DB 파일(`backend/data/likecleaner.db`)과 테이블이 자동으로 만들어집니다.
+`Application startup complete.`가 나오면 켜진 것입니다. DB 파일(`backend/data/likecleaner.db`)과 테이블은 서버가 켜질 때 자동으로 준비됩니다. **이 터미널은 켜 둔 채로** 둡니다.
 
-### 8. 브라우저에서 확인
+### 터미널 ②: 화면
 
-- http://localhost:8000/api/health → `{"status":"ok","database":"ok"}`
-- http://localhost:8000/docs → API 목록 화면. 여기서 직접 시험해 볼 수 있습니다.
-  1. `GET /api/health` 줄을 클릭해 펼칩니다.
-  2. 오른쪽의 **Try it out** → 파란 **Execute** 버튼을 누릅니다.
-  3. 아래 **Responses**에 `Code 200`과 `{"status": "ok", "database": "ok"}`가 나오면 정상입니다.
+터미널 오른쪽 위 `+`로 새 터미널을 열고:
 
-### 9. 끄기
+```
+cd ~/Desktop/likecleaner/frontend
+npm run dev:real
+```
 
-서버를 켠 터미널에서 `Ctrl` + `C`를 누릅니다.
+`➜  Local:   http://localhost:5173/`이 나오면 됩니다.
 
-### 자주 생기는 문제
+### 브라우저
 
-| 증상 | 해결 |
+http://localhost:5173 을 열고 `Sign in with Google`을 누릅니다.
+- 반드시 **5173 주소**로 들어가세요. Google 로그인이 이 주소로 돌아오도록 등록돼 있습니다.
+- 로그인한 이메일이 등록돼 있어야 합니다(아래 "사용자 관리하기").
+
+### 할당량 주의
+
+YouTube는 하루에 쓸 수 있는 양(10,000 units, 미국 태평양 시간 자정에 초기화)이 정해져 있고, 이 앱을 쓰는 모두가 나눠 씁니다. 화면 위쪽에 오늘 남은 양이 보입니다.
+
+| 하는 일 | 대략 |
 |---|---|
-| `uv: command not found` | 2번 단계를 보세요. 설치 직후라면 터미널을 닫았다 다시 여세요 |
-| `address already in use` | 서버가 이미 다른 터미널에서 켜져 있습니다. 그 터미널에서 `Ctrl` + `C`로 끄고 다시 켜세요 |
-| `ValidationError` 또는 `.env` 관련 오류 | `backend/.env`의 값 형식이 틀렸습니다. `.env.example`의 설명과 비교해 보세요. 숫자 칸(`DAILY_QUOTA`)에 글자가 들어가지 않았는지 확인하세요 |
-| `ModuleNotFoundError` | 5번(`uv sync`)을 다시 실행하세요 |
+| 로그인 후 좋아요 처음 불러오기 / Liked Videos `Resync` | 약 200 units (좋아요 약 5,000개 기준, 1분 남짓) |
+| 새로고침 (서버가 목록을 기억하는 동안) | 0 |
+| 재생목록 열기 / 재생목록 `Resync` | 50개당 약 2 units |
+| 좋아요 취소, 재생목록에서 제거 | 영상 1개당 50 |
+| 재생목록으로 이동 / 이동 + 좋아요 취소 | 영상 1개당 50 / 100 (+ 중복 확인 몇 units) |
+
+- `Resync` 버튼에 마우스를 올리면 예상 소모량이 보입니다. 모자라면 버튼이 꺼집니다.
+- **백엔드를 껐다 켜면** 서버가 기억하던 좋아요 목록이 사라져 다음 화면에서 약 200 units를 다시 씁니다. 작업이 도는 중에 끄면 그 작업은 중단 처리되고, 진행 패널의 `Retry Failed`로 이어서 할 수 있습니다(DECISIONS 63).
+
+### 끄기
+
+두 터미널에서 각각 `Ctrl` + `C`를 누릅니다. 다시 켤 때는 위 "터미널 ①", "터미널 ②"만 하면 됩니다.
+
+## 가짜 데이터 모드로 켜기 (터미널 1개)
+
+```
+cd ~/Desktop/likecleaner/frontend
+npm run dev
+```
+
+http://localhost:5173 을 엽니다. 백엔드는 켜지 않아도 됩니다.
+- 화면 오른쪽 아래 **DEV** 버튼으로 개발용 패널을 열어 사용자 상태, 오류 상황(실패, 할당량 초과, 429), 남은 할당량을 바꿔 볼 수 있습니다.
+- 처음 상태로 되돌리려면 DEV 패널의 **Reset mock data**를 누릅니다.
+- 직접 해 볼 시나리오는 [docs/TEST_SCENARIOS.md](docs/TEST_SCENARIOS.md) 1부에 있습니다.
 
 ## 사용자 관리하기 (누가 LikeCleaner를 쓸 수 있는지)
 
@@ -180,41 +163,25 @@ someone@gmail.com                        active    signed in before  YouTube con
 
 > 개발 중(테스트 상태, DECISIONS 51)에는 Google Cloud의 **대상 → 테스트 사용자**에도 그 이메일이 있어야 Google 로그인이 됩니다.
 
-## 실제 로그인으로 실행하기 (Phase 2 개발 중)
+## 서버 상태 확인 (문제가 생겼을 때)
 
-`npm run dev`는 가짜 데이터(mock)로 돌아갑니다. 진짜 Google 로그인으로 보려면 **터미널 두 개**를 씁니다.
-
-1. 첫 번째 터미널: 위 "백엔드 서버 실행하기"의 7번처럼 백엔드를 켭니다.
-   ```
-   cd ~/Desktop/likecleaner/backend
-   uv run uvicorn app.main:app --reload --port 8000
-   ```
-2. 두 번째 터미널(VS Code 터미널 오른쪽 위 `+`): 화면을 실제 모드로 켭니다.
-   ```
-   cd ~/Desktop/likecleaner/frontend
-   npm run dev:real
-   ```
-3. 브라우저에서 http://localhost:5173 을 엽니다. 실제 모드에서는 오른쪽 아래 **DEV** 버튼이 보이지 않습니다.
-
-- 지금(P2-4)은 로그인과 **조회**(좋아요 목록, 재생목록, 할당량)까지 실제로 연결돼 있습니다. 좋아요 취소, 이동, 제거 같은 작업은 다음 단계(P2-5) 전까지 `not connected to the server yet` 오류로 나옵니다.
-- 실제 모드에서 목록을 불러오면 YouTube 할당량을 씁니다. 좋아요 목록 전체(약 4,900개)는 1분 남짓 걸리고 약 200 units가 듭니다. 새로고침해도 서버가 기억하고 있으면 0 units입니다. `Resync`를 누를 때마다 다시 씁니다(DECISIONS 59).
-- 반드시 **5173 주소**로 들어가세요. Google 로그인이 이 주소로 돌아오도록 등록돼 있습니다.
-- 끌 때는 두 터미널에서 각각 `Ctrl` + `C`를 누릅니다.
-
-## 앱 안에서 테스트하기
-
-- `npm run dev`(mock 모드)에서는 화면 오른쪽 아래의 **DEV** 버튼으로 개발용 패널을 열 수 있습니다. 사용자 상태, 오류 상황, 남은 할당량을 바꿔 가며 테스트할 수 있습니다.
-- 클릭해 볼 시나리오 10개는 [docs/TEST_SCENARIOS.md](docs/TEST_SCENARIOS.md)에 있습니다.
-- 처음 상태로 되돌리려면 DEV 패널의 **Reset mock data**를 누르세요.
+백엔드가 켜져 있을 때:
+- http://localhost:8000/api/health → `{"status":"ok","database":"ok"}`이면 서버와 DB가 정상입니다.
+- http://localhost:8000/docs → API 목록 화면입니다. 줄을 펼쳐 **Try it out → Execute**로 직접 시험할 수 있습니다.
 
 ## 자주 생기는 문제
 
 | 증상 | 해결 |
 |---|---|
-| `command not found: npm` | Node.js가 설치되지 않았습니다. "처음 한 번만: 준비물"을 보세요 |
-| `Port 5173 is in use` 또는 다른 주소(5174 등)로 열림 | 이미 앱이 다른 터미널에서 실행 중입니다. 그 터미널에서 `Ctrl` + `C`로 끄거나, 터미널에 나온 새 주소로 들어가세요 |
-| 브라우저에 "사이트에 연결할 수 없음" | 앱이 꺼져 있습니다. 4번(`npm run dev`)을 다시 실행하세요 |
-| 화면이 이상하게 멈춤 | 브라우저 새로고침(`Cmd` + `R`). 그래도 안 되면 DEV 패널의 Reset mock data |
+| `command not found: npm` / `uv: command not found` | "처음 한 번만: 준비"의 2번을 보세요. 설치 직후라면 터미널을 닫았다 다시 여세요 |
+| `Port 5173 is in use` 또는 다른 주소(5174 등)로 열림 | 화면이 이미 다른 터미널에서 켜져 있습니다. 그 터미널에서 `Ctrl` + `C`로 끄고 다시 켜세요 |
+| `address already in use` (백엔드) | 백엔드가 이미 다른 터미널에서 켜져 있습니다. 그 터미널에서 `Ctrl` + `C`로 끄고 다시 켜세요 |
+| 실제 모드 화면에 `The server is not responding.` | 백엔드(터미널 ①)가 꺼져 있습니다. 다시 켜세요 |
+| 브라우저에 "사이트에 연결할 수 없음" | 화면(터미널 ②)이 꺼져 있습니다 |
+| 로그인 화면에 `Your session has ended. Please sign in again.` | 로그인 기간(7일)이 지났거나 Google 쪽 권한이 끊겼습니다. 다시 로그인하세요. 개발 중(테스트 상태)에는 Google 권한이 7일마다 끊깁니다(DECISIONS 51) |
+| `ValidationError` 또는 `.env` 관련 오류 | `backend/.env`의 값 형식이 틀렸습니다. `.env.example`의 설명과 비교해 보세요 |
+| `ModuleNotFoundError` | 백엔드 폴더에서 `uv sync`를 다시 실행하세요 |
+| 가짜 데이터 모드 화면이 이상하게 멈춤 | 브라우저 새로고침(`Cmd` + `R`). 그래도 안 되면 DEV 패널의 Reset mock data |
 
 ## 문서
 
@@ -223,6 +190,8 @@ someone@gmail.com                        active    signed in before  YouTube con
 | [docs/SPEC.md](docs/SPEC.md) | 기획서 원본 |
 | [docs/DECISIONS.md](docs/DECISIONS.md) | 기획서 이후 확정한 결정 (SPEC.md보다 우선) |
 | [docs/PHASE1_NOTES.md](docs/PHASE1_NOTES.md) | Phase 1 화면 흐름, 기획서와 달라진 점, 완료 기준 점검, Phase 2 주의 사항 |
-| [docs/TEST_SCENARIOS.md](docs/TEST_SCENARIOS.md) | 직접 클릭해 볼 테스트 시나리오 10개 |
+| [docs/PHASE2_NOTES.md](docs/PHASE2_NOTES.md) | Phase 2에서 기획서와 달라진 점, 완료 기준 다시 점검, 남은 과제 |
+| [docs/TEST_SCENARIOS.md](docs/TEST_SCENARIOS.md) | 직접 해 볼 테스트 시나리오 (1부: 가짜 데이터, 2부: 실제 계정과 예상 할당량) |
 | [docs/PHASE2_PLAN.md](docs/PHASE2_PLAN.md) | Phase 2(백엔드, 실제 로그인/YouTube) 작업 계획과 직접 할 일 |
+| [docs/POC_RESULTS.md](docs/POC_RESULTS.md) | 실제 YouTube로 미리 확인한 결과 |
 | [CLAUDE.md](CLAUDE.md) | 개발 작업 규칙 |

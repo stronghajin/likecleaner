@@ -22,8 +22,9 @@ class Settings(BaseSettings):
     google_client_id: str = ""
     google_client_secret: SecretStr = SecretStr("")
 
-    # Mail settings: currently unused (DECISIONS.md 56). Kept for clients/mail_client.py.
+    # Where data deletion requests go; shown on the Privacy Policy (SPEC.md 10, DECISIONS.md 64)
     admin_email: str = "hajin300@gmail.com"
+    # Mail settings: currently unused (DECISIONS.md 56). Kept for clients/mail_client.py.
     smtp_user: str = ""
     smtp_app_password: SecretStr = SecretStr("")
 

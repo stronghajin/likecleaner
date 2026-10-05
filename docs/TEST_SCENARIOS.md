@@ -1,6 +1,11 @@
-# Phase 1 직접 테스트 시나리오
+# 직접 테스트 시나리오
 
-브라우저에서 직접 클릭하며 확인하는 시나리오 10개입니다. 앱 실행 방법은 맨 위 폴더의 `README.md`를 보세요.
+브라우저에서 직접 클릭하며 확인하는 시나리오입니다. 앱 실행 방법은 맨 위 폴더의 `README.md`를 보세요.
+
+- **1부 (가짜 데이터, `npm run dev`):** 시나리오 10개. YouTube 할당량을 쓰지 않고, 실패·할당량 초과·429 같은 상황을 DEV 패널로 만들어 볼 수 있습니다.
+- **2부 (실제 계정, `npm run dev:real` + 백엔드):** 진짜 YouTube 계정으로 하는 시나리오와 예상 할당량. [2부로 바로 가기](#2부-실제-계정-시나리오)
+
+# 1부: 가짜 데이터 시나리오
 
 ## 시작 전에: DEV 패널 사용법
 
@@ -17,7 +22,7 @@
 
 - **모든 시나리오는 Reset mock data로 시작하세요.** 시작 상태는 이렇습니다.
   - 좋아요 영상 320개, 재생목록 7개
-  - 남은 할당량 7,450. 로그인하면 좋아요 목록을 불러오느라 8이 줄어 7,442가 됩니다.
+  - 남은 할당량 7,450. 로그인하면 좋아요 목록을 불러오느라 16이 줄어 7,434가 됩니다(전체 좋아요 수 확인 1 포함, DECISIONS 61).
 
 ---
 
@@ -160,3 +165,96 @@
 | 6 | `Remove Duplicates` | "Selected 8 duplicate videos…" |
 | 7 | **Study Music** → `Remove Duplicates` | "No duplicate videos found." |
 | 8 | **New Playlist** 클릭 | "This playlist is empty." |
+
+---
+
+# 2부: 실제 계정 시나리오
+
+`README.md`의 "실제 모드로 켜기"대로 터미널 2개를 켜고 시작합니다.
+
+## 지키기
+
+- 실제로 바꾸는 작업은 **지워져도 되는 영상 2~3개**와 테스트용 재생목록 **`LC Test 1`, `LC Test 2`**로만 합니다(DECISIONS 43).
+- 테스트 영상 고르기: YouTube에서 지워져도 되는 영상 3개(A, B, C)에 새로 좋아요를 누릅니다. 앱의 `Resync`를 한 번 눌러야 보입니다. 정렬이 `Recently liked`(기본)이면 **가장 최근에 누른 좋아요가 맨 위**에 옵니다(2026-10-05 실제 계정으로 확인). 찾기 어려우면 `Search titles`에 제목 일부를 넣으세요.
+- **백엔드를 껐다 켜거나 로그아웃했다 다시 로그인하면** 좋아요 목록을 처음부터 다시 불러와 약 200 units가 듭니다.
+- 실제로 쓴 양은 화면 위쪽 할당량 숫자로 확인합니다. 확인 창의 예상 소모량은 "최대치"라서 실제보다 큽니다. 예를 들어 이동은 '맨 앞 추가 실패' 대비로 50이 더 붙어 있습니다(DECISIONS 30).
+- 429, 할당량 초과, 서버 재시작 중단, 롤백 실패는 일부러 만들기 어렵거나 할당량이 많이 들어서 **자동 테스트**(`cd backend && uv run pytest`)로 확인합니다. 화면에서 보고 싶으면 1부(DEV 패널)를 쓰세요.
+
+## 예상 할당량 한눈에
+
+| 시나리오 | 예상 units |
+|---|---|
+| R1. 로그인과 사용자 관리 | 0 (로그아웃 후 다시 들어가면 약 200) |
+| R2. 좋아요 불러오기와 안내 문구 | 약 200 (처음 불러올 때만) |
+| R3. Liked Videos `Resync` | 약 200 |
+| R4. 재생목록 보기 | 재생목록 하나당 약 2 |
+| R5. 작업 처리 (P2-5 테스트) | 약 463 |
+| R6. 로그인 만료 | 0 |
+| R7. 개인정보처리방침 | 0 |
+| **처음부터 끝까지 한 번** | **약 875** (R2 + R3 + R4 몇 개 + R5) |
+
+## R1. 로그인과 사용자 관리 (0 units)
+
+새 터미널에서 `cd ~/Desktop/likecleaner/backend` 후 명령을 씁니다(README "사용자 관리하기").
+
+| 순서 | 할 일 | 기대 결과 |
+|---|---|---|
+| 1 | 등록 안 된 Google 계정으로 로그인 | Access Denied 화면에 그 계정 이메일이 보임 |
+| 2 | `uv run python -m scripts.users add 그이메일` → 브라우저 새로고침 | 로그인 화면으로 돌아옴 → 다시 로그인하면 YouTube 권한 화면 → 메인 화면 |
+| 3 | `uv run python -m scripts.users disable 그이메일` → 왼쪽 메뉴 클릭 | Access Denied |
+| 4 | `uv run python -m scripts.users enable 그이메일` → 새로고침 | 다시 쓸 수 있음 |
+
+> 개발 중(테스트 상태)에는 그 이메일이 Google Cloud의 테스트 사용자에도 있어야 합니다(DECISIONS 51).
+
+## R2. 좋아요 불러오기와 안내 문구 (약 200 units, 처음만)
+
+| 순서 | 할 일 | 기대 결과 |
+|---|---|---|
+| 1 | 로그인 직후 | `Loading your liked videos… N loaded`가 올라가고, 아래에 작게 `The first load after sign-in uses up to about 200 units…` |
+| 2 | 다 불러온 뒤 | 목록 위에 회색 `YouTube lets us read about 5,000 of your N liked videos…` (좋아요가 5,000개를 넘는 계정만), 개수 옆에 `N unavailable videos hidden` |
+| 3 | 브라우저 새로고침 | 금방 다시 보이고 할당량은 그대로(서버가 기억, 0 units) |
+
+## R3. Liked Videos `Resync` (약 200 units)
+
+| 순서 | 할 일 | 기대 결과 |
+|---|---|---|
+| 1 | `Resync`에 마우스 올리기 | `Uses about 200 units` 정도 |
+| 2 | `Resync` 누르기 | `Resyncing…`, 1분 남짓 뒤 목록이 다시 보이고 할당량이 약 200 줄어듦 |
+
+## R4. 재생목록 보기 (재생목록 하나당 약 2 units)
+
+| 순서 | 할 일 | 기대 결과 |
+|---|---|---|
+| 1 | 왼쪽 `Playlists` → `LC Test 1` | 항목 목록. YouTube에서 보이는 것과 같음 |
+| 2 | `Resync`에 마우스 올리기 | 항목 수에 맞는 작은 숫자(예: `Uses about 2 units`) |
+| 3 | 재생목록 옆 링크 아이콘 | YouTube의 그 재생목록이 새 탭으로 열림 |
+
+## R5. 작업 처리 (약 463 units, P2-5 테스트, 2026-10-05 통과)
+
+준비: 위 "지키기"대로 A, B, C에 좋아요 → `Resync`(R3에 포함).
+
+| 순서 | 할 일 | 기대 결과 | units |
+|---|---|---|---|
+| 1 | A 선택 → `Remove Like` | 진행 패널 성공 1개, A가 목록에서 사라짐 | 50 |
+| 2 | B → `Move to Playlist` → LC Test 1 → `Move Only` | 성공 1개, LC Test 1 맨 위에 B, 개수 +1 | 52 |
+| 3 | B → 다시 `Move Only` → LC Test 1 | Skipped 1개 | 2 |
+| 4 | B, C → `Move and Remove Likes` → LC Test 1 | 둘 다 성공, 좋아요 목록에서 B·C가 사라지고 LC Test 1에는 C, B가 한 번씩 | 152 |
+| 5 | 작업이 끝나고 10초 안에 LC Test 1 `Resync` | 버튼이 `Syncing with YouTube...`로 바뀌었다가 다시 불러옴 | 2 |
+| 6 | LC Test 1에서 B, C 선택 → `Remove Selected` | 둘 다 성공, 목록에서 사라짐 | 100 |
+| 7 | youtube.com에서 LC Test 2에 영상 1개 추가 → 앱 LC Test 2 `Resync` → youtube.com에서 그 영상 삭제 → 앱에서 그 영상 `Remove Selected` → `Retry Failed` | `Error 404 · playlistItemNotFound`로 Failed, Retry Failed도 Failed | 102 |
+| | 재생목록 열기 등 | | 약 5 |
+
+## R6. 로그인 만료 (0 units)
+
+| 순서 | 할 일 | 기대 결과 |
+|---|---|---|
+| 1 | Chrome에서 `Cmd` + `Option` + `I` → **Application** 탭 → 왼쪽 **Cookies** → `http://localhost:5173` → `lc_session` 줄을 선택하고 `Delete` | (화면은 아직 그대로) |
+| 2 | 아직 열지 않은 재생목록을 클릭 | 로그인 화면으로 이동, 회색 `Your session has ended. Please sign in again.` |
+| 3 | 다시 로그인 | 메인 화면. 서버가 목록을 기억하고 있으면 좋아요는 바로 보임(0 units) |
+
+## R7. 개인정보처리방침 (0 units)
+
+| 순서 | 할 일 | 기대 결과 |
+|---|---|---|
+| 1 | 로그인 화면 아래 `Privacy Policy` | 수집 항목, 사용 목적, 보관 기간 표, 삭제 요청 방법 |
+| 2 | "Deleting your data"의 이메일 | `backend/.env`의 `ADMIN_EMAIL`(비어 있으면 `hajin300@gmail.com`) |

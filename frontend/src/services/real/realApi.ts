@@ -1,7 +1,8 @@
 // The real backend (Phase 2): sign-in (P2-3), reading (P2-4) and jobs (P2-5).
 import type { LikeCleanerApi } from '../api'
 import { ApiError } from '../errors'
-import type { ApiErrorInfo, Job, LikedVideosResult, Playlist, PlaylistItem, Quota, User } from '../types'
+import type { ApiErrorInfo, AppInfo, Job, LikedVideosResult, Playlist, PlaylistItem, Quota, User } from '../types'
+import { reportError } from '../sessionEvents'
 import { request } from './http'
 
 const refreshQuery = (refresh?: boolean) => (refresh ? '?refresh=true' : '')
@@ -20,7 +21,8 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 export const realApi: LikeCleanerApi = {
   async getCurrentUser() {
     try {
-      return await request<User>('GET', '/api/me')
+      // A 401 here just means "signed out", not "the session ended while using the app".
+      return await request<User>('GET', '/api/me', undefined, { quietSessionEnd: true })
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) return null
       throw e
@@ -37,6 +39,10 @@ export const realApi: LikeCleanerApi = {
     await request<void>('POST', '/api/auth/logout')
   },
 
+  getAppInfo() {
+    return request<AppInfo>('GET', '/api/app-info')
+  },
+
   getQuota() {
     return request<Quota>('GET', '/api/quota')
   },
@@ -49,7 +55,10 @@ export const realApi: LikeCleanerApi = {
       await wait(LIKES_POLL_MS)
       status = await request<LikesLoadStatus>('GET', '/api/likes/status')
     }
-    if (status.state === 'error' && status.error) throw new ApiError(status.error)
+    if (status.state === 'error' && status.error) {
+      reportError(status.error) // e.g. the YouTube permission was cut during the load
+      throw new ApiError(status.error)
+    }
     options?.onProgress?.(status.loaded)
     return request<LikedVideosResult>('GET', '/api/likes')
   },

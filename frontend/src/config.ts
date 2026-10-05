@@ -1,9 +1,8 @@
-// App-wide settings shown on screens. Phase 2 may load these from the backend.
-
-/** Where access and data deletion requests go (ADMIN_EMAIL in SPEC.md section 2). */
-export const ADMIN_EMAIL = 'hajin300@gmail.com'
+// Fixed links shown on screens. Settings that can change (the admin email) come from the backend
+// through services (`api.getAppInfo()`, DECISIONS.md 64).
 
 export const EXTERNAL_LINKS = {
+  googleUserDataPolicy: 'https://developers.google.com/terms/api-services-user-data-policy',
   youtubeTerms: 'https://www.youtube.com/t/terms',
   googlePrivacy: 'https://policies.google.com/privacy',
   googlePermissions: 'https://myaccount.google.com/permissions',

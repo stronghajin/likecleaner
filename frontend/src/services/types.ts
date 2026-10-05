@@ -16,6 +16,12 @@ export interface User {
   status: UserStatus
 }
 
+/** Public settings shown on screens (DECISIONS.md 64). */
+export interface AppInfo {
+  /** Where data deletion requests go: ADMIN_EMAIL in backend/.env (SPEC.md 10). */
+  adminEmail: string
+}
+
 export interface Quota {
   /** Daily limit for the whole GCP project (DAILY_QUOTA). */
   limit: number

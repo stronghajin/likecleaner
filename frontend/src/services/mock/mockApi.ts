@@ -427,6 +427,9 @@ function buildItems(input: CreateJobInput): { items: JobItem[]; playlist?: MockP
 
 // ---------- the API ----------
 
+/** The real value comes from ADMIN_EMAIL in backend/.env. */
+const MOCK_ADMIN_EMAIL = 'hajin300@gmail.com'
+
 const currentUser = (): User => ({ ...MOCK_USER, status: getDevSettings().userStatus })
 
 export const mockApi: LikeCleanerApi = {
@@ -446,6 +449,11 @@ export const mockApi: LikeCleanerApi = {
     await latency(150)
     state.signedIn = false
     persist()
+  },
+
+  async getAppInfo() {
+    await latency(100)
+    return { adminEmail: MOCK_ADMIN_EMAIL }
   },
 
   async getQuota() {

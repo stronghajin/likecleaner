@@ -12,7 +12,7 @@ const SIGNIN_ERRORS: Record<string, string> = {
 }
 
 export default function LandingPage() {
-  const { signIn } = useSession()
+  const { signIn, sessionEnded } = useSession()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [busy, setBusy] = useState(false)
@@ -40,6 +40,7 @@ export default function LandingPage() {
         {busy ? 'Signing in…' : 'Sign in with Google'}
       </Button>
       {error && <p className="mt-3 text-danger">{error}</p>}
+      {!error && sessionEnded && <p className="mt-3 text-muted">Your session has ended. Please sign in again.</p>}
       <p className="mt-6 text-xs leading-relaxed text-muted">
         By signing in, you agree to the{' '}
         <a href={EXTERNAL_LINKS.youtubeTerms} target="_blank" rel="noreferrer" className={linkClass}>

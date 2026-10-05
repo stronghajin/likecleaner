@@ -195,3 +195,11 @@
     - 작업 화면 연결(P2-6에서 앞당김): `POST /api/jobs`, `POST /api/jobs/{id}/retry`, `GET /api/jobs/latest`. 진행 상황은 실제 모드 1.5초, mock 0.7초마다 조회한다(DECISIONS 48).
     - DECISIONS 55의 `Resync` 대기: 작업이 끝난 시각(`finishedAt`)에서 10초 안에 누르면 버튼이 `Syncing with YouTube...`로 바뀌고 꺼졌다가, 10초가 되면 자동으로 다시 불러온다.
     - 30일 지난 `jobs`, `job_items`, `quota_usage`는 서버가 켜질 때 한 번, 그 뒤 24시간마다 지운다.
+
+## P2-6 마무리와 P2-7 일부 (2026-10-05)
+
+64. 화면 연결 마무리
+    - **운영 빌드에서 mock 제거:** mock/실제 선택은 `frontend/src/services/source.ts`(개발용)에 두고, `npm run build`일 때는 `vite.config.ts`가 이 파일을 `source.production.ts`(실제 서버만)로 바꿔 끼운다. DEV 패널은 `App.tsx`에서 `import.meta.env.DEV`일 때만 불러오므로 빌드에서 빠진다. 빌드 결과물에 mock 흔적(`Reset mock data`, `likecleaner.mock`)이 없는 것을 확인했다(47을 실제로 지킴). 전환 설정 이름은 `VITE_API_MODE`(`npm run dev:real`)를 그대로 쓴다.
+    - **로그인 만료:** 실제 서버가 401(로그인이 끝남, 예: 7일 지남)이나 `youtubeReauthRequired`(YouTube 권한 끊김)를 주면 services가 "세션 끝남" 신호를 보내고, 화면은 로그아웃한 뒤 로그인 화면으로 간다. 로그인 화면에 회색 `Your session has ended. Please sign in again.`을 보여준다(기획서에 없던 문구). 처음 접속할 때 `/api/me`의 401은 "로그인 안 함"이라 신호를 보내지 않는다.
+    - **개인정보처리방침 연락처:** 삭제 요청 이메일은 `backend/.env`의 `ADMIN_EMAIL`이다. 로그인 없이 볼 수 있는 `GET /api/app-info`(`{adminEmail}`만)로 받아 services의 `getAppInfo()`를 거쳐 표시한다. 화면 코드에 적혀 있던 이메일(`config.ts`)은 지웠다. 문구는 실제 동작(서버 메모리 최대 7일, 허용 목록, 작업 기록 항목, Google API Services User Data Policy 링크)에 맞게 고쳤고 시행일은 2026-10-05.
+    - 서버 재시작으로 중단된 작업의 `Not processed` 항목도 `Retry Failed`로 다시 실행된다(자동 테스트 추가).

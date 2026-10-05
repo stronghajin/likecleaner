@@ -377,6 +377,14 @@ async def test_jobs_cut_off_by_a_restart_are_stopped(client, google, youtube):
     assert _statuses(latest) == ["not_processed"]
     assert "rate(v2)" not in youtube.calls  # not resumed (DECISIONS.md 63)
 
+    # Retry Failed picks the cut-off items up again (DECISIONS.md 10, 63).
+    retry = await client.post(f"/api/jobs/{job.id}/retry")
+    assert retry.status_code == 200
+    assert [i["videoId"] for i in retry.json()["items"]] == ["v2"]
+    await job_worker.wait_all()
+    assert _statuses((await client.get("/api/jobs/latest")).json()) == ["success"]
+    assert "v2" not in youtube.liked
+
 
 async def test_old_jobs_and_usage_are_deleted_after_30_days(client, google, youtube):
     await _signed_in(client, google)

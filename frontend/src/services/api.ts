@@ -1,4 +1,4 @@
-import type { CreateJobInput, Job, LikedVideosResult, Playlist, PlaylistItem, Quota, User } from './types'
+import type { AppInfo, CreateJobInput, Job, LikedVideosResult, Playlist, PlaylistItem, Quota, User } from './types'
 
 /**
  * Everything the screens can ask for. Phase 1 implements this with mock data (`mock/mockApi.ts`);
@@ -37,6 +37,12 @@ export interface LikeCleanerApi {
    * Phase 2: POST /api/auth/logout → no Google call → 0 units.
    */
   signOut(): Promise<void>
+
+  /**
+   * Public settings for screens such as the Privacy Policy; works signed out.
+   * GET /api/app-info → no YouTube call (backend/.env) → 0 units.
+   */
+  getAppInfo(): Promise<AppInfo>
 
   /**
    * GET /api/quota → no YouTube call (sums today's `quota_usage` rows, PT day) → 0 units.
