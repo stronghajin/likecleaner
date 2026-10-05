@@ -1,55 +1,134 @@
 # 배포 계획 (DEPLOY_PLAN)
 
-목표: 나와 친구 몇 명이 인터넷에서 LikeCleaner를 쓸 수 있게 하기. 비개발자도 관리하기 쉬운 가장 단순한 방법으로.
-작성: 2026-10-05. **계획만 정리한 문서이고, 아직 아무것도 배포하지 않았습니다.** 7장의 질문에 답을 받은 뒤 실행합니다.
+목표: 나와 친구 몇 명이 인터넷에서 LikeCleaner를 쓸 수 있게 하기.
+작성: 2026-10-05, 갱신: 2026-10-05 (배포 구성 확정, DECISIONS 65).
+**배포 구성은 정해졌고 배포용 파일도 만들었습니다(아래 표). 아직 서버 설정과 첫 배포는 하지 않았습니다.** 7장의 질문은 아직 열려 있습니다.
 
-- 비용과 정책은 이 시점에 직접 확인하지 못했습니다. 확실하지 않은 것은 **(확인 필요)**로 표시했고, 가입 전에 업체 요금표와 Google 안내에서 다시 확인합니다.
+| 파일 | 무엇 |
+|---|---|
+| `backend/Dockerfile`, `backend/.dockerignore` | 백엔드 도커 이미지 |
+| `deploy/docker-compose.prod.yml` | 홈서버에서 컨테이너 실행 설정(포트 48200, `data/`·`backups/` 연결) |
+| `.github/workflows/deploy-backend.yml` | 백엔드 자동 배포 |
+| `.github/workflows/manage-users.yml` | 사용자 등록 버튼 |
+| `backend/scripts/backup.py` | DB 백업(14일 보관) |
+| `frontend/vercel.json` | Vercel의 `/api` 넘김, 화면 주소 처리 |
+| `backend/.env.prod` | 운영 설정 원본(git에 올라가지 않음, 직접 작성) |
+
+- 최초 배포는 kknaks가 완성하고, 그 뒤 관리(새 버전 올리기, 친구 등록)는 이 레포 주인이 GitHub 화면에서 합니다.
+- 비용과 정책 중 확실하지 않은 것은 **(확인 필요)**로 표시했습니다.
 - 관련 문서: 남은 과제는 `PHASE2_NOTES.md` 4장, Google 설정 기록은 `PHASE2_PLAN.md` B·F, 실제 계정 테스트는 `TEST_SCENARIOS.md` 2부.
 
-## 1. 우리 서비스의 배포 조건
+## 1. 확정한 구성 (DECISIONS 65)
 
-| 조건 | 왜 | 결론 |
+```
+브라우저 ──https──▶ likecleaner.kknaks.cloud        화면 (Vercel)
+                         │  /api/* 요청은 Vercel이 그대로 넘겨줌
+                         ▼
+                   likecleaner-api.kknaks.cloud    백엔드 (kknaks 홈서버)
+                         │  Nginx Proxy Manager(HTTPS) → 서버 48200번 포트
+                         ▼
+                   docker 컨테이너 1개 (uvicorn worker 1개)
+                         │
+                   /home/kknaks/likecleaner/data/likecleaner.db   SQLite (서버 디스크에 영구 보관)
+```
+
+| 항목 | 결정 |
+|---|---|
+| 화면 | Vercel. 레포 주인 계정으로 이 레포를 연결. `main`에 push하면 화면이 자동으로 새로 올라감 |
+| 백엔드 | kknaks 홈서버의 docker 컨테이너 1개. 서버 포트 `48200` → 컨테이너 `8000` |
+| DB | SQLite 그대로. 서버 폴더 `/home/kknaks/likecleaner/data`를 컨테이너의 `/app/data`에 연결(bind mount)해서, 컨테이너를 새로 만들어도 DB 파일이 남음 |
+| 주소 | 화면 `https://likecleaner.kknaks.cloud`, 백엔드 `https://likecleaner-api.kknaks.cloud` |
+| 주소 하나처럼 쓰기 | 브라우저는 화면 주소만 씀. 화면 주소의 `/api/*`를 Vercel이 백엔드 주소로 넘겨줌(rewrite). 그래서 로그인 쿠키와 Google 로그인 돌아오는 주소가 모두 화면 주소 하나로 동작하고, CORS 설정이 필요 없음 |
+| 백엔드 배포 | GitHub Actions. `main`에 백엔드 관련 파일이 바뀌어 push되면 자동 배포. 수동 실행(이전 버전으로 되돌리기)도 가능 |
+| 도커 이미지 | GitHub Actions에서 만들어 GitHub 이미지 저장소(GHCR, `ghcr.io/stronghajin/likecleaner-api`)에 올림. 홈서버는 받아서 실행만 함 |
+| 비밀값 | GitHub Secrets. 운영 설정 전체를 `ENV_PROD` 하나에 넣고, 배포할 때마다 서버의 `.env`로 씀 |
+
+**왜 SQLite로 충분한가:** 이 앱은 좋아요 목록, 작업 진행 상황, 동시 실행 잠금이 서버 메모리에 있어서 원래 서버 1대·프로세스 1개로만 돌 수 있습니다(DECISIONS 58, 63). 여러 서버가 DB 하나를 나눠 쓰는 일이 없고, DB에 쓰는 것도 사용자·토큰·작업 기록·할당량 기록뿐이라 양이 적습니다. 할당량(하루 10,000 units) 때문에 하루 작업 수 자체가 작습니다. API와 백그라운드 작업이 동시에 읽고 쓰는 부분은 이미 WAL 모드로 되어 있습니다(`backend/app/core/db.py`).
+
+## 2. 이 구성이 지키는 배포 조건
+
+| 조건 | 왜 | 어떻게 |
 |---|---|---|
-| **서버 프로세스는 딱 하나** | 좋아요 목록, 재생목록, 작업 진행, access token, 동시 실행 잠금이 모두 그 프로세스 메모리에 있음(DECISIONS 58, 63). 프로세스가 2개면 요청마다 다른 기억을 보고, 1인 1작업 규칙도 깨짐 | uvicorn worker 1개, 서버(인스턴스) 1대. 자동 확장 끄기 |
-| **항상 켜져 있어야 함 (서버리스 불가)** | 작업은 서버 안의 백그라운드 작업으로 몇 분 돌고, 30일 삭제도 서버 안에서 매일 돎. 요청이 없을 때 꺼지는 방식(서버리스, scale-to-zero)이면 작업이 중단 처리되고 목록 기억이 사라져 다시 약 200 units를 씀 | 항상 켜진 서버. Vercel·Netlify 함수, Cloud Run의 0대까지 줄이기, Fly의 자동 정지는 쓰지 않음 |
-| **재시작은 비용** | 배포(새 버전 올리기)와 재시작마다 메모리가 비워짐 → 사용자마다 다음 접속 때 약 200 units, 진행 중 작업은 중단 처리 | 배포는 사람이 몰리지 않는 시간에 수동으로. "push할 때마다 자동 배포"는 끄기 |
-| **영구 저장소 (디스크)** | SQLite 파일에 등록된 사용자, 암호화된 refresh token, 작업 기록, 할당량 기록이 있음. 컨테이너를 다시 만들 때 사라지면 안 됨 | 서버를 다시 만들어도 남는 디스크(volume)에 DB 파일을 둠(`DATABASE_URL`) |
-| **백업** | DB가 없어지면 사용자 재등록·재로그인이 필요하고, 오늘 쓴 할당량 기록이 사라져 한도 초과 위험. 좋아요 목록 자체는 DB에 없어 잃을 것이 적음 | 하루 1번 자동 스냅샷(가능한 곳) + 가끔 내 맥으로 내려받기. 복구 연습 1번 |
-| **화면과 API를 같은 주소로** | FastAPI가 빌드된 화면 파일도 내보내면(DECISIONS 35) 브라우저 입장에서 주소가 하나 → 로그인 쿠키(`SameSite=Lax`)가 그대로 동작하고 CORS 설정이 필요 없음. 지금 개발 환경(Vite 프록시)과 같은 구조 | 다음 단계에서 코드 추가: FastAPI가 `frontend/dist`를 제공 |
-| **HTTPS** | Google 로그인은 운영 주소에 https를 요구. `APP_BASE_URL`이 `https://`이면 쿠키에 Secure가 자동으로 붙음(DECISIONS 57) | 배포처가 주는 무료 인증서 사용 |
-| **비밀값** | `GOOGLE_CLIENT_SECRET`, `TOKEN_ENCRYPTION_KEY`, `SESSION_SECRET` | 배포처의 "secrets" 기능에 직접 입력. git과 대화창에는 넣지 않음. 운영용 키는 새로 만들고 DB도 새로 시작(사용자는 다시 등록) |
-| **Google OAuth 주소** | 리디렉션 주소가 `APP_BASE_URL + /api/auth/google/callback`(DECISIONS 57) | Google Cloud에 운영 주소 리디렉션 추가, 브랜딩에 홈페이지·개인정보처리방침 주소·승인된 도메인 |
-| **사용자 관리 명령** | `scripts.users add`를 서버에서 실행해야 함 | 배포처의 원격 터미널(콘솔/SSH)에서 실행하는 방법 안내 |
-| **메모리 크기** | 좋아요 5,000개 ≈ 수 MB/사용자 | 10명이어도 256~512MB로 충분 |
-| **서버 위치** | 한국에서 쓰므로 가까운 곳이 빠름 | 도쿄 또는 서울 지역 |
+| 서버 프로세스는 딱 하나 | 메모리 상태(좋아요 목록, 작업, 잠금)가 프로세스마다 따로 생기면 안 됨(DECISIONS 58, 63) | 컨테이너 1개, uvicorn worker 1개로 고정 |
+| 항상 켜져 있음 | 작업은 몇 분씩 서버 안에서 돌고, 30일 삭제도 서버 안에서 매일 돎 | 홈서버 컨테이너, 꺼지면 자동으로 다시 켜짐(`restart: unless-stopped`) |
+| DB 파일은 영구 보관 | 등록된 사용자, 암호화된 refresh token, 작업·할당량 기록 | bind mount(`/home/kknaks/likecleaner/data`). 배포해도 그대로 |
+| 백업 | DB가 없어지면 모두 다시 등록·로그인, 오늘 쓴 할당량 기록도 사라짐 | 4장 |
+| HTTPS | Google 로그인은 운영 주소에 https 필요. `APP_BASE_URL`이 `https://`이면 쿠키에 Secure가 붙음(DECISIONS 57) | 화면은 Vercel 인증서, 백엔드는 Nginx Proxy Manager의 Let's Encrypt 인증서 |
+| 화면 주소 하나 | 로그인 쿠키(`SameSite=Lax`)와 Google 리디렉션이 한 주소에서 동작해야 함 | Vercel rewrite(1장). 개발 중 Vite 프록시와 같은 구조 |
+| 비밀값은 git에 안 올림 | CLAUDE.md "비밀값" | GitHub Secrets. 운영용 키는 새로 만들고 DB도 새로 시작(사용자는 다시 등록) |
+| 화면 수정은 백엔드를 건드리지 않음 | 백엔드가 재시작되면 메모리가 비어 할당량을 다시 씀(5장) | 화면은 Vercel, 백엔드 자동 배포는 백엔드 관련 파일이 바뀔 때만 |
 
-다음 단계에서 필요한 코드 작업(이번에는 하지 않음): FastAPI 화면 제공, Dockerfile(또는 실행 설정), 운영 환경 변수 정리, DB 백업 스크립트, `scripts.users` 원격 실행 안내.
+## 3. 자동 배포 흐름 (GitHub Actions)
 
-## 2. 배포 방법 비교
+### 백엔드 배포 (`deploy-backend`)
 
-| | A. 컨테이너 호스팅 (Fly.io) | B. 작은 VPS (Hetzner / AWS Lightsail 등) | C. 내 맥 + 터널 (Cloudflare Tunnel) |
-|---|---|---|---|
-| 개념 | 우리 앱을 상자(컨테이너)로 묶어 올리면 업체가 서버, HTTPS, 재시작을 관리 | 리눅스 컴퓨터 1대를 빌려 직접 설치·관리 | 지금 맥에서 돌리는 서버를 터널로 인터넷에 연결 |
-| 월 비용(대략) | 약 $3~6 (작은 머신 1대 + 1GB 디스크 + 스냅샷) **(확인 필요)** | 약 $4~7 **(확인 필요)** | $0 + 도메인 연 $10~15 + 전기 |
-| 도메인 | 무료 `앱이름.fly.dev` 주소 제공. 내 도메인도 연결 가능 | 내 도메인 필요(인증서 발급용) | 내 도메인 필요(Cloudflare에 연결). 무료 임시 주소는 켤 때마다 바뀌어 Google 로그인에 못 씀 |
-| 설정 난이도 | 중하: 명령 몇 개(제가 실행), 계정·카드 등록은 직접 | 상: 서버 보안 업데이트, 방화벽, HTTPS(Caddy), 자동 재시작을 직접 | 중: 터널 설치와 도메인 연결. 맥 설정(잠자기 끄기 등) |
-| 우리 조건과 적합성 | ◎ 1대 고정 + 항상 켜기 + 디스크 지원. 자동 정지만 꺼야 함 | ◎ 조건은 다 맞음 | △ 맥이 꺼지거나 잠자거나 업데이트로 재시작하면 서비스 중단 + 재시작 비용 |
-| 백업과 복구 | 디스크 일일 자동 스냅샷(보관 기간 **확인 필요**) + 내려받기. 복구는 스냅샷으로 새 디스크 | 업체 백업 옵션(유료, 약 +20%) 또는 직접 스크립트 | Time Machine 등 맥 백업. 맥 고장이면 서비스와 데이터가 함께 위험 |
-| 위험한 점 | 업체 요금·정책 변경. 디스크가 머신 1대에 묶여 그 지역 장애 시 중단. 무료 사용량 정책이 바뀐 적 있음 **(확인 필요)** | 보안 패치를 안 하면 해킹 위험. 비개발자에게 관리 부담이 가장 큼 | 개발용 맥과 운영이 섞임(개발 중 서버를 끄면 친구도 끊김). 집 인터넷·정전. 맥이 항상 켜져 있어야 함 |
-| 비슷한 대안 | Railway, Render(유료 플랜, 디스크 있는 것)도 같은 방식 **(확인 필요)** | DigitalOcean, Vultr | Tailscale Funnel(고정 주소 무료, Google 승인 도메인으로 쓸 수 있는지 **확인 필요**) |
+- **언제:** `main`에 push됐는데 `backend/` 또는 배포 설정 파일이 바뀐 경우. 화면(`frontend/`)이나 문서만 바뀐 push에는 돌지 않음
+- **수동 실행:** GitHub → Actions → 실행. 이전 버전 번호(커밋 SHA)를 넣으면 그 버전으로 되돌림
 
-## 3. 추천: A. Fly.io (컨테이너 1대 + 디스크 1개, 도쿄)
+```
+1. 도커 이미지 만들기 (GitHub 서버에서, linux/amd64)
+2. GHCR에 올리기: likecleaner-api:<커밋 SHA>, likecleaner-api:latest
+3. 홈서버에 SSH로 접속
+4. Secret ENV_PROD 내용을 /home/kknaks/likecleaner/.env 로 쓰기
+5. 배포 설정 파일(`deploy/docker-compose.prod.yml`) 받기
+6. 새 이미지 받아서 컨테이너 교체 (DB 구조는 서버가 켜질 때 자동으로 맞춤, DECISIONS 50)
+7. `/api/health`가 60초 안에 응답하는지 확인. 응답이 없으면 실패로 표시하고 서버 로그를 보여줌
+```
 
-- 우리 조건(1대, 항상 켜짐, 영구 디스크, HTTPS)을 모두 맞추면서 **서버 관리(보안 업데이트, 재부팅)를 업체가 함**. 비개발자에게 B보다 관리 부담이 작음.
-- 명령줄 도구로 배포하므로 제가 터미널에서 대신 실행하고 안내하기 쉬움. 사용자는 계정·카드 등록과 비밀값 입력만.
-- C는 비용은 가장 적지만 맥이 개발 기계이자 운영 서버가 되어, 개발하다 서버를 끄면 친구도 끊기고 잠자기·업데이트에 약함.
-- 비용은 월 몇 달러 수준으로 예상하지만, 가입 전에 요금표에서 다시 확인한다 **(확인 필요)**.
-- 주소: 우선 무료 `likecleaner.fly.dev`로 시작 가능한지 Google 승인 도메인 규칙과 함께 확인한다 **(확인 필요)**. 안 되거나 깔끔한 주소를 원하면 내 도메인을 산다(연 $10~15).
+만들기(1~2)가 실패하면 3번 이후로 가지 않으므로, 지금 돌고 있는 서버는 그대로입니다.
 
-## 4. 친구가 쓸 때 하루 할당량 (프로젝트 전체 10,000 units/일, 태평양 시간 자정 초기화)
+### 사용자 관리 (`manage-users`)
+
+- GitHub → Actions → 실행에서 동작(`add` / `disable` / `enable` / `list`)과 이메일을 넣고 누름
+- 서버 컨테이너 안에서 `python -m scripts.users ...`를 실행하고 결과를 실행 기록에 보여줌
+- 터미널이나 서버 접속 없이 친구를 등록할 수 있음
+
+### 필요한 GitHub Secrets
+
+| 이름 | 내용 | 누가 넣나 |
+|---|---|---|
+| `ENV_PROD` | 운영 설정 전체(아래 표). `backend/.env.prod` 파일 내용을 통째로 붙여 넣음 | kknaks |
+| `PROD_SSH_HOST` | 홈서버 주소 | kknaks |
+| `PROD_SSH_USER` | 홈서버 SSH 사용자 | kknaks |
+| `PROD_SSH_KEY` | 홈서버 SSH 키 | kknaks |
+
+`ENV_PROD`에 들어가는 값 (`backend/.env.example` 기준, `backend/.env.prod`에 작성):
+
+| 이름 | 운영 값 |
+|---|---|
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google Cloud 클라이언트 값 |
+| `ADMIN_EMAIL` | 개인정보처리방침 연락처(7장 질문 2) |
+| `TOKEN_ENCRYPTION_KEY` | 운영용으로 새로 만듦 |
+| `SESSION_SECRET` | 운영용으로 새로 만듦 |
+| `DAILY_QUOTA` | `10000` |
+| `DATABASE_URL` | `sqlite+aiosqlite:////app/data/likecleaner.db` (컨테이너 안 경로 = 서버의 `data/` 폴더) |
+| `APP_BASE_URL` | `https://likecleaner.kknaks.cloud` (화면 주소. Google 리디렉션도 이 주소로 옴) |
+
+`SMTP_*`는 쓰지 않으므로 넣지 않습니다(DECISIONS 56).
+
+> ⚠️ **`TOKEN_ENCRYPTION_KEY`는 한 번 쓰기 시작하면 바꾸지 않습니다.** 바뀌면 저장된 refresh token을 못 읽어 모두 다시 로그인해야 합니다. GitHub Secret은 저장한 뒤 다시 볼 수 없으므로, `backend/.env.prod` 원본(git에 올라가지 않음)을 안전한 곳에 따로 보관하고 Secret을 고칠 때는 원본을 통째로 다시 붙여 넣습니다. `SESSION_SECRET`이 바뀌면 모두 로그아웃될 뿐입니다.
+
+### Vercel 설정
+
+- 레포 연결 시 Root Directory는 `frontend`, 빌드 명령은 `npm run build`, 결과 폴더는 `dist`
+- `frontend/vercel.json`:
+  - `/api/*` → `https://likecleaner-api.kknaks.cloud/api/*`로 넘김
+  - 그 밖의 주소(`/privacy`, `/denied` 등)는 `index.html`로 보냄(화면 안에서 주소를 처리하므로)
+- 좋아요 불러오기와 작업은 시작 요청 후 진행 상황을 따로 묻는 방식이라(DECISIONS 48, 59), Vercel이 넘겨주는 요청이 오래 걸리는 경우는 없음
+
+## 4. 백업
+
+- **방식:** SQLite 공식 백업 방식(`.backup`)으로 사본을 만든다. WAL 모드라서 DB 파일을 그냥 복사하면 깨진 사본이 될 수 있다. 명령은 `docker exec likecleaner-api python -m scripts.backup`(`backend/scripts/backup.py`)
+- **주기:** 홈서버 cron에 하루 1번 위 명령을 등록, `/home/kknaks/likecleaner/backups/`에 날짜별로 보관하고 14일 지난 것은 지움. 운영 DB(`data/likecleaner.db`)는 계속 유지되고, 지우는 것은 백업 사본뿐
+- **왜 14일인가:** 개인정보처리방침에서 작업·할당량 기록은 30일, "YouTube API 데이터는 30일 넘게 보관하지 않음", 계정 삭제 시 토큰과 작업 기록을 지운다고 약속했다. 백업 사본에도 같은 데이터가 들어 있으므로 30일보다 짧게 둔다
+- **복구 방법:** 홈서버 `/home/kknaks/likecleaner`에서 `docker compose --env-file .env -f docker-compose.prod.yml stop` → `data/likecleaner.db`를 백업 파일로 바꾸고 `data/likecleaner.db-wal`, `data/likecleaner.db-shm`을 지움 → `... up -d`
+- **복구 연습:** 첫 배포 뒤 1번. 위 방법으로 바꿔 넣고 로그인이 되는지 확인
+- 좋아요 목록 자체는 DB에 없으므로(DECISIONS 58) 잃는 것은 등록 사용자, 토큰, 작업·할당량 기록
+
+## 5. 친구가 쓸 때 하루 할당량 (프로젝트 전체 10,000 units/일, 태평양 시간 자정 초기화)
 
 가정 (좋아요가 많은 사용자 기준, 좋아요가 적으면 불러오기 비용은 훨씬 작음: 1,000개면 약 42 units):
-- 좋아요 불러오기 = 약 200 (로그인 후 서버 메모리가 비어 있을 때: 처음, 로그아웃 후, 서버 재시작 후, 7일 뒤)
+- 좋아요 불러오기 = 약 200 (로그인 후 서버 메모리가 비어 있을 때: 처음, 로그아웃 후, **서버 재시작 후**, 7일 뒤)
 - `Resync` 1번 = 약 200
 - 작업 = 항목당 50 (이동+좋아요 취소는 100)
 
@@ -63,7 +142,9 @@
 - 정리 작업 자체가 대부분을 씀. 100개 일괄 작업 1번(5,000~10,000)이면 그날 다른 사람은 거의 못 씀.
 - 할당량이 바닥나면 그날은 모두 작업 중단, 다음날 태평양 자정(한국 오후 4~5시)에 초기화.
 
-**줄이는 방법 (결정 받은 뒤 진행)**
+**백엔드 자동 배포와 할당량:** 백엔드가 새로 배포될 때마다 서버 메모리가 비워집니다. 그래서 사용자마다 다음 접속 때 좋아요를 다시 불러오고(약 200 units), 진행 중이던 작업은 중단 처리됩니다(`Retry Failed`로 이어서 하기, DECISIONS 63). 백엔드 변경은 **사람들이 안 쓰는 시간에 `main`에 올리는 것**을 권합니다. 화면만 바꾸는 것은 상관없습니다.
+
+**줄이는 방법 (7장 질문 3에서 결정)**
 
 | 방법 | 절약 | 단점 / 바뀌는 것 |
 |---|---|---|
@@ -71,40 +152,43 @@
 | ② 1인 하루 사용 한도(예: 2,000 units) | 한 사람이 전체를 다 쓰는 것 방지 | 새 기능(기획서에 없음). 한도 안내 문구 필요 |
 | ③ 친구에게 "하루 50개 정도씩" 사용 안내 | 코드 변경 없음 | 지켜 줄지는 사람에 달림 |
 | ④ Google에 할당량 증가 신청 | 한도 자체를 늘림 | 신청서·심사 필요, 승인 보장 없음 **(확인 필요)** |
-| ⑤ 배포·재시작을 줄이기(밤에만) | 재시작마다 사용자당 약 200 | 운영 습관 |
+| ⑤ 백엔드 변경은 밤에 `main`에 올리기 | 재시작마다 사용자당 약 200 | 운영 습관 |
 
 추천 조합: ① + ③ + ⑤. ②는 친구가 늘면 검토.
 
-## 5. 내가 직접 해야 하는 일 (순서)
+## 6. 할 일 (순서)
 
-각 항목의 클릭 순서는 실행 단계에서 화면에 맞춰 자세히 안내한다.
+| # | 할 일 | 누가 |
+|---|---|---|
+| 1 | 배포용 코드: Dockerfile, `deploy/docker-compose.prod.yml`, GitHub Actions 2개(백엔드 배포, 사용자 관리), `frontend/vercel.json`, 백업 스크립트 (만듦, 로컬 도커로 실행·사용자 등록·백업·재생성 후 DB 유지 확인) → 커밋 | kknaks |
+| 2 | 홈서버: 도메인 연결(`likecleaner`, `likecleaner-api`), Nginx Proxy Manager에 `likecleaner-api.kknaks.cloud` → 48200 + 인증서, 백업 cron(`docker exec likecleaner-api python -m scripts.backup`). 폴더 `/home/kknaks/likecleaner`는 첫 배포가 만듦 | kknaks |
+| 3 | `backend/.env.prod` 작성(운영용 키 새로 생성) → GitHub Secrets에 `ENV_PROD`, `PROD_SSH_*` 넣기 | kknaks |
+| 4 | 첫 백엔드 배포 → `https://likecleaner-api.kknaks.cloud/api/health`가 ok | kknaks |
+| 5 | Vercel 가입, 이 레포 연결(Root Directory `frontend`), 도메인 `likecleaner.kknaks.cloud` 추가 | 레포 주인 (도메인 연결은 kknaks와 같이) |
+| 6 | Google Cloud: 클라이언트 `likecleaner-local` 편집(또는 운영용 새 클라이언트) → 승인된 리디렉션 URI에 `https://likecleaner.kknaks.cloud/api/auth/google/callback` 추가 | 레포 주인 |
+| 7 | Google Cloud: 브랜딩 — 홈페이지 `https://likecleaner.kknaks.cloud`, 개인정보처리방침 `https://likecleaner.kknaks.cloud/privacy`, 승인된 도메인 `kknaks.cloud`. 로고는 올리지 않음(DECISIONS 51). 도메인 소유 확인(Search Console)이 요구되면 kknaks가 함 **(확인 필요)** | 레포 주인 + kknaks |
+| 8 | Google Cloud: 대상 → **앱 게시**(In production). `youtube` 범위는 민감한 범위라 검증 없이는 "Google에서 확인하지 않은 앱" 화면이 나옴(7장 질문 4). 검증 안 된 앱의 사용자 수 상한(약 100명) **(확인 필요)**. 게시 후 테스트 사용자 제한과 7일 토큰 만료가 없어지는지 확인(SPEC 14장 PoC 2번) | 레포 주인 |
+| 9 | Actions `manage-users`로 내 이메일 등록 → 운영 주소로 로그인 → `TEST_SCENARIOS.md` 2부 일부(R1, R2, R6, R7 + 작업 2~3개) | 같이 |
+| 10 | 백업 확인: 다음날 백업 파일이 생겼는지, 복구 연습 1번 | kknaks |
+| 11 | 친구 공유 — 8장 체크리스트 | 레포 주인 |
 
-1. **결정하기** — 7장 질문에 답하기
-2. **(필요하면) 도메인 사기** — 업체에서 도메인 구입(연 $10~15). 무료 `fly.dev` 주소로 충분하면 생략
-3. **Fly.io 계정 만들기** — 가입, 결제 카드 등록, 지출 알림 설정
-4. **명령줄 도구 로그인** — 제가 설치 명령을 드리면 `fly auth login`으로 브라우저 로그인(비밀번호를 대화창에 넣지 않음)
-5. **(제가) 배포 코드 준비** — 화면 제공, 실행 설정, 백업 스크립트 → 커밋
-6. **비밀값 넣기** — 운영용 `TOKEN_ENCRYPTION_KEY`, `SESSION_SECRET`(제가 만드는 명령 안내), `GOOGLE_CLIENT_ID/SECRET`, `ADMIN_EMAIL`, `APP_BASE_URL`을 배포처 secrets에 직접 입력
-7. **첫 배포와 확인** — `https://운영주소/api/health`가 ok
-8. **Google Cloud: 운영 리디렉션 주소 등록** — 클라이언트 → `likecleaner-local` 편집(또는 운영용 새 클라이언트) → 승인된 리디렉션 URI에 `https://운영주소/api/auth/google/callback` 추가 → 저장
-9. **Google Cloud: 브랜딩** — 애플리케이션 홈페이지 `https://운영주소`, 개인정보처리방침 `https://운영주소/privacy`, 승인된 도메인에 운영 도메인 추가. 로고는 올리지 않음(올리면 검증 필요, DECISIONS 51). 도메인 소유 확인(Search Console)이 요구되면 그 절차도 함 **(확인 필요)**
-10. **Google Cloud: 앱 게시(In production)** — 대상 → **앱 게시** → 확인
-    - 경고: `youtube` 범위는 민감한 범위라 검증을 받지 않으면 사용자에게 **"Google에서 확인하지 않은 앱"** 화면이 나온다. 우리는 검증 없이 쓰기로 함(기획서 3-1). 검증 안 된 앱은 사용자 수 상한(약 100명)이 있다 **(확인 필요)**
-    - 게시하면 테스트 사용자 목록 제한과 7일 토큰 만료(DECISIONS 51)가 없어지는지 확인(SPEC 14장 PoC 2번)
-11. **내 계정 등록과 실제 로그인 테스트** — 원격 콘솔에서 `scripts.users add 내이메일` → 운영 주소로 로그인 → `TEST_SCENARIOS.md` 2부 일부(R1, R2, R6, R7 + 작업 2~3개)
-12. **백업 확인** — 스냅샷이 생기는지, 내려받기 1번, 복구 연습 1번
-13. **친구 공유** — 6장 체크리스트
+## 7. 아직 정할 것 (질문)
 
-## 6. 친구에게 공유하기 전 체크리스트
+1. **친구 수**: 처음에 몇 명인가요? (5명 이하면 할당량이 대체로 버팀)
+2. **연락처 이메일 공개**: 개인정보처리방침에 `hajin300@gmail.com`이 공개돼도 되나요, 아니면 별도 이메일을 만들까요?
+3. **할당량 절약**: ① "로그아웃해도 목록 유지"를 할까요? ② 1인 하루 한도를 둘까요(둔다면 몇 units)?
+4. **"확인되지 않은 앱" 경고**: 경고 화면을 감수하고 검증 없이 갈까요? (검증은 몇 주 걸리고 요구 사항이 많아 MVP에서는 제외, 기획서 3-1)
+
+## 8. 친구에게 공유하기 전 체크리스트
 
 **내가 할 일**
-- [ ] 친구의 Google 계정 이메일(로그인할 그 계정)을 받아 원격 콘솔에서 `uv run python -m scripts.users add 친구이메일`
-- [ ] `scripts.users list`로 `active` 확인
+- [ ] 친구의 Google 계정 이메일(로그인할 그 계정)을 받아 GitHub → Actions → `manage-users` → `add` + 친구 이메일
+- [ ] 같은 곳에서 `list`로 `active` 확인
 - [ ] 개인정보처리방침의 연락처 이메일이 공개돼도 괜찮은지 확인(`ADMIN_EMAIL`)
 - [ ] 오늘 남은 할당량 확인(내가 많이 쓴 날은 피하기)
 
 **친구에게 보낼 안내문 (초안, 한국어)**
-> LikeCleaner 주소: https://운영주소
+> LikeCleaner 주소: https://likecleaner.kknaks.cloud
 > 1. `Sign in with Google`을 누르고, 알려 준 그 Google 계정으로 로그인해.
 > 2. **"Google에서 확인하지 않은 앱"** 화면이 나오면 왼쪽 아래 **고급(Advanced)** → **LikeCleaner(으)로 이동(안전하지 않음)**을 눌러. 내가 만든 개인 앱이라 Google 심사를 받지 않아서 나오는 화면이야.
 > 3. YouTube 권한 화면에서 체크하고 **계속**. 좋아요와 재생목록을 읽고 바꾸는 데만 써.
@@ -113,14 +197,14 @@
 > 6. YouTube 하루 사용량을 모두가 나눠 써. **하루 50개 정도씩** 정리해 주고, 할당량 부족이 뜨면 다음날 오후 4~5시 이후에 다시 해 줘.
 > 7. 그만 쓰고 싶으면 https://myaccount.google.com/permissions 에서 LikeCleaner 권한을 지우고, 기록 삭제는 나한테 말해 줘.
 
-## 7. 결정해야 할 것 (질문)
+## 9. 처음 비교했던 방법 (기록)
 
-1. **예산**: 월 $5~10 정도 괜찮은가요? (0원이 꼭 필요하면 C)
-2. **배포 방법**: 추천(A. Fly.io)으로 갈까요?
-3. **도메인**: 가진 도메인이 있나요? 없다면 무료 `likecleaner.fly.dev` 같은 주소로 시작해도 될까요, 아니면 도메인을 살까요?
-4. **친구 수**: 처음에 몇 명인가요? (5명 이하면 할당량이 대체로 버팀)
-5. **연락처 이메일 공개**: 개인정보처리방침에 `hajin300@gmail.com`이 공개돼도 되나요, 아니면 별도 이메일을 만들까요?
-6. **할당량 절약**: ① "로그아웃해도 목록 유지"를 할까요? ② 1인 하루 한도를 둘까요(둔다면 몇 units)?
-7. **"확인되지 않은 앱" 경고**: 경고 화면을 감수하고 검증 없이 갈까요? (검증은 몇 주 걸리고 요구 사항이 많아 MVP에서는 제외, 기획서 3-1)
-8. **결제와 계정 주인**: Fly.io 계정과 카드는 본인 명의로 하나요?
-9. **배포 시간**: 새 버전은 언제 올릴까요? (예: 밤 11시 이후. 올릴 때마다 친구들 목록을 다시 불러와 할당량을 씀)
+처음 계획에서는 아래 셋을 비교하고 Fly.io를 추천했습니다. kknaks 홈서버(이미 docker, Nginx Proxy Manager, `kknaks.cloud` 도메인을 운영 중)를 쓸 수 있게 되어 1장 구성으로 바꿨습니다.
+
+| | A. Fly.io | B. 작은 VPS | C. 내 맥 + 터널 |
+|---|---|---|---|
+| 요약 | 컨테이너 호스팅, 업체가 서버 관리 | 리눅스 서버를 빌려 직접 관리 | 개발용 맥을 터널로 인터넷에 연결 |
+| 월 비용(대략) | $3~6 | $4~7 | $0 + 도메인 |
+| 안 고른 이유 | 비용과 도메인이 따로 필요. 홈서버로 비용 0, 도메인 이미 있음 | 서버 보안·관리를 직접 해야 함 | 맥이 꺼지거나 잠자면 서비스 중단, 개발과 운영이 섞임 |
+
+홈서버의 위험: 정전이나 집 인터넷 장애 때 서비스가 멈춤. 친구 몇 명이 쓰는 규모라 감수합니다.

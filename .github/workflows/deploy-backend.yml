@@ -1,0 +1,135 @@
+name: Deploy backend (home server)
+
+# LikeCleaner 백엔드 배포 (DECISIONS 65, docs/DEPLOY_PLAN.md 3장).
+#   이미지 만들기(GHCR) → 홈서버 SSH → .env 쓰기(Secret ENV_PROD) → compose 파일 받기 → pull + up → health 확인
+#
+# 언제 도나:
+#   - main push 중 backend/ 나 배포 설정이 바뀐 경우 (화면·문서·테스트만 바뀌면 안 돈다.
+#     백엔드가 재시작되면 메모리가 비어 사용자마다 할당량을 다시 쓰기 때문, DEPLOY_PLAN 5장)
+#   - 수동 실행: Actions → 이 workflow → Run workflow. image_tag 에 이전 커밋 SHA 를 넣으면 그 버전으로 되돌린다
+#
+# 필요한 GitHub Secrets:
+#   ENV_PROD        : backend/.env.prod 내용 통째
+#   PROD_SSH_HOST   : 홈서버 주소
+#   PROD_SSH_USER   : SSH 사용자
+#   PROD_SSH_KEY    : SSH private key
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "!backend/tests/**"
+      - "deploy/**"
+      - ".github/workflows/deploy-backend.yml"
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "되돌릴 버전(커밋 SHA). 비우면 지금 main 을 새로 만들어 배포"
+        required: false
+        default: ""
+
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/stronghajin/likecleaner-api
+  DEPLOY_DIR: /home/kknaks/likecleaner
+
+jobs:
+  build-push:
+    if: ${{ github.event.inputs.image_tag == '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build & push
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ github.sha }}
+            ${{ env.IMAGE }}:latest
+          cache-from: type=gha,scope=likecleaner-api
+          cache-to: type=gha,scope=likecleaner-api,mode=max
+
+  deploy:
+    needs: build-push
+    # 되돌리기(image_tag 입력)면 build-push 를 건너뛰고 바로 배포
+    if: ${{ always() && (needs.build-push.result == 'success' || needs.build-push.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          ENV_PROD: ${{ secrets.ENV_PROD }}
+          IMAGE_TAG: ${{ github.event.inputs.image_tag || github.sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_ACTOR: ${{ github.actor }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          IMAGE: ${{ env.IMAGE }}
+          DEPLOY_DIR: ${{ env.DEPLOY_DIR }}
+        with:
+          host: ${{ secrets.PROD_SSH_HOST }}
+          username: ${{ secrets.PROD_SSH_USER }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          envs: ENV_PROD,IMAGE_TAG,GH_TOKEN,GH_ACTOR,REPO,SHA,IMAGE,DEPLOY_DIR
+          script: |
+            set -euo pipefail
+            mkdir -p "$DEPLOY_DIR/data" "$DEPLOY_DIR/backups"
+            cd "$DEPLOY_DIR"
+
+            # 1) .env (Secret ENV_PROD + 이번에 띄울 이미지 버전)
+            umask 077
+            cat > .env <<ENVEOF
+            $ENV_PROD
+            IMAGE_TAG=$IMAGE_TAG
+            ENVEOF
+            chmod 600 .env
+            umask 022
+
+            # 2) compose 파일 (이번 커밋 기준)
+            curl -fsSL \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github.v3.raw" \
+              -o docker-compose.prod.yml \
+              "https://api.github.com/repos/$REPO/contents/deploy/docker-compose.prod.yml?ref=$SHA"
+
+            # 3) 새 이미지 받아서 교체 (DB 구조는 서버가 켜질 때 자동으로 맞춤, DECISIONS 50)
+            echo "$GH_TOKEN" | docker login ghcr.io -u "$GH_ACTOR" --password-stdin
+            docker compose --env-file .env -f docker-compose.prod.yml pull
+            docker compose --env-file .env -f docker-compose.prod.yml up -d --remove-orphans
+            docker logout ghcr.io
+
+            # 4) 켜졌는지 확인 (최대 60초)
+            for i in $(seq 1 30); do
+              if curl -fsS http://127.0.0.1:48200/api/health > /dev/null; then
+                echo "Backend is up: $IMAGE:$IMAGE_TAG"
+                break
+              fi
+              if [ "$i" = 30 ]; then
+                echo "Backend did not answer /api/health in 60 s. Last logs:"
+                docker logs --tail 50 likecleaner-api
+                exit 1
+              fi
+              sleep 2
+            done
+
+            # 5) 이 앱의 안 쓰는 옛 이미지만 정리 (다른 프로젝트 이미지는 건드리지 않음)
+            docker images "$IMAGE" --filter "dangling=true" -q | xargs -r docker rmi || true

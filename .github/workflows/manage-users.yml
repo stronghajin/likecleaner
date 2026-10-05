@@ -1,0 +1,55 @@
+name: Manage users
+
+# 허용 목록 관리 (DECISIONS 56, 65). 서버에 접속하지 않고 GitHub 화면에서 친구를 등록한다.
+#   Actions → Manage users → Run workflow → 동작과 이메일 입력
+#   결과(Added ..., 사용자 목록 등)는 실행 기록의 "Run on server" 단계에 나온다.
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "add: 등록 / disable: 막기 / enable: 다시 허용 / list: 목록 보기"
+        required: true
+        type: choice
+        options: [list, add, disable, enable]
+        default: list
+      email:
+        description: "Google 계정 이메일 (list 일 때는 비워 둠)"
+        required: false
+        default: ""
+
+concurrency:
+  group: manage-users
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check input
+        env:
+          ACTION: ${{ inputs.action }}
+          EMAIL: ${{ inputs.email }}
+        run: |
+          if [ "$ACTION" != "list" ] && ! printf '%s' "$EMAIL" | grep -Eq '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'; then
+            echo "Enter a valid email for '$ACTION'."
+            exit 1
+          fi
+
+      - name: Run on server
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          ACTION: ${{ inputs.action }}
+          EMAIL: ${{ inputs.email }}
+        with:
+          host: ${{ secrets.PROD_SSH_HOST }}
+          username: ${{ secrets.PROD_SSH_USER }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          envs: ACTION,EMAIL
+          script: |
+            set -euo pipefail
+            if [ "$ACTION" = "list" ]; then
+              docker exec likecleaner-api python -m scripts.users list
+            else
+              docker exec likecleaner-api python -m scripts.users "$ACTION" "$EMAIL"
+            fi

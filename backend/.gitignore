@@ -1,6 +1,8 @@
 # Secrets and local data: never commit (CLAUDE.md)
 .env
+.env.prod
 data/
+backups/
 *.db
 *.db-wal
 *.db-shm

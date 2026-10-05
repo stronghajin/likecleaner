@@ -77,8 +77,8 @@
 
 ## Phase 2 결정 (2026-10-03)
 
-34. 배포처는 P2-7 전에 정한다. P2-1~P2-6은 이 컴퓨터에서 개발한다.
-35. 운영할 때는 FastAPI가 빌드된 프론트엔드 파일도 함께 내보내, 화면과 API를 한 주소로 운영한다. 개발 중에는 Vite 프록시로 `/api`를 백엔드에 연결하므로, 브라우저 기준으로 주소는 `http://localhost:5173` 하나다.
+34. 배포처는 P2-7 전에 정한다. P2-1~P2-6은 이 컴퓨터에서 개발한다. (2026-10-05 결정: 65)
+35. (65로 대체) 운영할 때는 FastAPI가 빌드된 프론트엔드 파일도 함께 내보내, 화면과 API를 한 주소로 운영한다. 개발 중에는 Vite 프록시로 `/api`를 백엔드에 연결하므로, 브라우저 기준으로 주소는 `http://localhost:5173` 하나다.
 36. 파이썬 프로젝트와 버전 관리는 uv로 한다.
 37. 백엔드 라이브러리: `fastapi`, `uvicorn`, `pydantic-settings`, `sqlalchemy`, `aiosqlite`, `alembic`, `httpx`, `aiosmtplib`, `cryptography`, `itsdangerous`. 테스트용: `pytest`, `pytest-asyncio`, `respx`. 이 밖의 라이브러리는 먼저 묻는다.
 38. DB 구조 변경은 alembic 이력으로 관리한다.
@@ -203,3 +203,14 @@
     - **로그인 만료:** 실제 서버가 401(로그인이 끝남, 예: 7일 지남)이나 `youtubeReauthRequired`(YouTube 권한 끊김)를 주면 services가 "세션 끝남" 신호를 보내고, 화면은 로그아웃한 뒤 로그인 화면으로 간다. 로그인 화면에 회색 `Your session has ended. Please sign in again.`을 보여준다(기획서에 없던 문구). 처음 접속할 때 `/api/me`의 401은 "로그인 안 함"이라 신호를 보내지 않는다.
     - **개인정보처리방침 연락처:** 삭제 요청 이메일은 `backend/.env`의 `ADMIN_EMAIL`이다. 로그인 없이 볼 수 있는 `GET /api/app-info`(`{adminEmail}`만)로 받아 services의 `getAppInfo()`를 거쳐 표시한다. 화면 코드에 적혀 있던 이메일(`config.ts`)은 지웠다. 문구는 실제 동작(서버 메모리 최대 7일, 허용 목록, 작업 기록 항목, Google API Services User Data Policy 링크)에 맞게 고쳤고 시행일은 2026-10-05.
     - 서버 재시작으로 중단된 작업의 `Not processed` 항목도 `Retry Failed`로 다시 실행된다(자동 테스트 추가).
+
+## 배포 구성 (2026-10-05, 자세한 내용은 `docs/DEPLOY_PLAN.md`)
+
+65. 배포 구성 (34 결정, 35 대체)
+    - **화면은 Vercel, 백엔드는 kknaks 홈서버.** 화면 `https://likecleaner.kknaks.cloud`(Vercel, 레포 주인 계정), 백엔드 `https://likecleaner-api.kknaks.cloud`(홈서버 docker 컨테이너 1개, uvicorn worker 1개, 서버 포트 `48200` → `8000`, Nginx Proxy Manager가 HTTPS 처리).
+    - **화면 주소 하나 유지(35의 목적은 그대로).** FastAPI가 화면 파일을 내보내는 대신, Vercel이 화면 주소의 `/api/*`를 백엔드 주소로 넘긴다(rewrite). 브라우저는 화면 주소만 쓰므로 로그인 쿠키(`SameSite=Lax`)와 Google 리디렉션(`APP_BASE_URL` = 화면 주소)이 개발 중 Vite 프록시와 같은 구조로 동작하고, CORS 설정이 필요 없다. 화면을 바꿔도 백엔드가 재시작되지 않아 할당량을 다시 쓰지 않는다.
+    - **DB는 SQLite 그대로.** 서버 프로세스가 원래 하나뿐이고(58, 63) 쓰기 양이 적어 충분하다. 서버 폴더 `/home/kknaks/likecleaner/data`를 컨테이너 `/app/data`에 연결(bind mount)해 배포해도 DB 파일이 남는다. 백업은 SQLite `.backup` 방식으로 하루 1번, 14일 보관(사용자 결정). 백업 사본에도 개인정보처리방침의 30일 보관·삭제 약속이 적용되므로 30일보다 짧게 둔다.
+    - **백엔드는 GitHub Actions로 자동 배포.** `main` push 중 `backend/`나 배포 설정이 바뀐 경우에만 돈다. 도커 이미지는 Actions에서 만들어 GHCR(`ghcr.io/stronghajin/likecleaner-api`)에 올리고, 홈서버에는 SSH로 들어가 받아서 교체만 한다. 이전 버전(커밋 SHA)으로 되돌리는 수동 실행을 둔다. 배포할 때마다 메모리가 비워지는 비용(재로그인 시 약 200 units, 진행 중 작업 중단)은 감수하고, 백엔드 변경은 사람들이 안 쓰는 시간에 올린다.
+    - **비밀값은 GitHub Secrets.** 운영 설정 전체를 `ENV_PROD` 하나에 넣고 배포 때마다 서버의 `.env`로 쓴다. 원본은 `backend/.env.prod`(git에 올리지 않음)에 둔다. SSH는 `PROD_SSH_HOST`, `PROD_SSH_USER`, `PROD_SSH_KEY`.
+    - **사용자 관리는 GitHub Actions 수동 실행.** 동작(`add`/`disable`/`enable`/`list`)과 이메일을 넣으면 서버 컨테이너에서 `scripts.users`를 실행한다(56의 터미널 명령을 서버 접속 없이 쓰기 위한 것).
+    - 최초 배포는 kknaks가 하고, 이후 관리는 레포 주인이 GitHub 화면(push, Actions)에서 한다.

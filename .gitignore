@@ -5,6 +5,7 @@ dist/
 
 # Secrets and databases: never commit (also listed in backend/.gitignore)
 backend/.env
+backend/.env.prod
 *.db
 *.db-wal
 *.db-shm

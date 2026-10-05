@@ -194,5 +194,5 @@ someone@gmail.com                        active    signed in before  YouTube con
 | [docs/TEST_SCENARIOS.md](docs/TEST_SCENARIOS.md) | 직접 해 볼 테스트 시나리오 (1부: 가짜 데이터, 2부: 실제 계정과 예상 할당량) |
 | [docs/PHASE2_PLAN.md](docs/PHASE2_PLAN.md) | Phase 2(백엔드, 실제 로그인/YouTube) 작업 계획과 직접 할 일 |
 | [docs/POC_RESULTS.md](docs/POC_RESULTS.md) | 실제 YouTube로 미리 확인한 결과 |
-| [docs/DEPLOY_PLAN.md](docs/DEPLOY_PLAN.md) | 배포 계획: 배포 조건, 방법 비교와 추천, 친구 사용 시 할당량, 직접 할 일, 공유 체크리스트, 결정할 질문 |
+| [docs/DEPLOY_PLAN.md](docs/DEPLOY_PLAN.md) | 배포 계획: 확정한 구성(Vercel + 홈서버), 자동 배포 흐름, 백업, 친구 사용 시 할당량, 할 일, 공유 체크리스트, 남은 질문 |
 | [CLAUDE.md](CLAUDE.md) | 개발 작업 규칙 |

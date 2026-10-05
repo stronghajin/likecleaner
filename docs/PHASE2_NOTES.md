@@ -63,11 +63,11 @@ Phase 2(백엔드, Google 로그인, YouTube 연결)에서 만든 것과 기획�
 
 | 과제 | 내용 | 관련 |
 |---|---|---|
-| 배포처 정하기와 배포 | HTTPS 주소, 서버 한 대에서 백엔드 실행 | 34 |
-| FastAPI가 화면 파일도 제공 | `npm run build` 결과를 FastAPI가 함께 내보내 주소 하나로 운영 | 35 |
+| 배포 | 구성 확정: 화면 Vercel + 백엔드 홈서버, GitHub Actions 자동 배포(`DEPLOY_PLAN.md`). 배포용 코드와 첫 배포가 남음 | 34, 65 |
+| 화면 주소 하나로 운영 | FastAPI 대신 Vercel이 `/api/*`를 백엔드로 넘기는 방식으로 바꿈(`frontend/vercel.json`) | 35 → 65 |
 | 운영 주소로 Google 설정 | 리디렉션 주소, `APP_BASE_URL`, 브랜딩(홈페이지·개인정보처리방침 주소, 승인된 도메인) | 51, 57 |
 | OAuth 앱 게시 (In production) | 게시 후 `youtube` 스코프 로그인과 refresh token 발급 확인(SPEC 14장 PoC 2번). Testing의 7일 만료가 사라지는지 확인 | 51 |
-| DB 백업 | SQLite 파일(`backend/data/likecleaner.db`) 주기 백업 방법 | PHASE2_PLAN P2-7 |
+| DB 백업 | 홈서버에서 SQLite `.backup` 방식으로 하루 1번, 14일 보관. 복구 연습 1번 | 65, `DEPLOY_PLAN.md` 4장 |
 | 로그 | 운영 로그를 어디에 남기고 얼마나 볼지. 비밀값은 로그에 넣지 않음 | CLAUDE.md |
 | 30일 삭제 운영 확인 | 실제 서버에서 하루 지나 지워지는지 확인(코드와 자동 테스트는 완료) | 63 |
 | 지인 테스트 | 지인 이메일 등록 → 실제 주소로 로그인 → 정리 작업 | PHASE2_PLAN P2-7 |
