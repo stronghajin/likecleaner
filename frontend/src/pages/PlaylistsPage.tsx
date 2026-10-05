@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react'
 import RemoveFromPlaylistDialog from '../components/actions/RemoveFromPlaylistDialog'
 import Button from '../components/Button'
 import Pagination from '../components/Pagination'
+import ResyncButton from '../components/ResyncButton'
 import SelectionBar from '../components/SelectionBar'
 import VideoTable from '../components/VideoTable'
 import YouTubeLink from '../components/YouTubeLink'
-import { MAX_SELECTION } from '../services'
+import { MAX_SELECTION, playlistLoadUnits } from '../services'
 import type { Job, PlaylistItem } from '../services'
 import { useJob } from '../state/job'
 import { usePlaylists } from '../state/playlists'
@@ -74,6 +75,7 @@ export default function PlaylistsPage() {
 
   const active = playlists?.find((p) => p.id === activeId) ?? null
   const all = items ?? []
+  const watchable = all.filter((i) => i.availability === 'available')
   const pageCount = Math.max(1, Math.ceil(all.length / pageSize))
   const currentPage = Math.min(page, pageCount)
   const start = (currentPage - 1) * pageSize
@@ -226,13 +228,13 @@ export default function PlaylistsPage() {
                   onPageChange={setPage}
                   onPageSizeChange={setPageSize}
                 />
-                <Button
+                <ResyncButton
+                  units={playlistLoadUnits(all.length, new Set(watchable.map((i) => i.videoId)).size)}
                   onClick={resync}
-                  disabled={itemsLoading || running}
-                  title={running ? JOB_RUNNING_HINT : 'Load this playlist again from YouTube'}
-                >
-                  {itemsLoading && items ? 'Resyncing…' : 'Resync'}
-                </Button>
+                  loading={itemsLoading && items !== null}
+                  disabled={itemsLoading}
+                  jobRunning={running}
+                />
               </div>
 
               <div className="mt-3 border bg-panel">

@@ -48,8 +48,9 @@ export interface LikeCleanerApi {
    * filtering, sorting and paging happen on the returned list. Without `refresh` the server may answer
    * from its memory at 0 units (DECISIONS.md 58). Deleted/private videos are only counted (DECISIONS.md 59).
    * Real API: POST /api/likes/load, GET /api/likes/status until ready, GET /api/likes →
-   * `playlistItems.list` (playlistId=LL, every page) + `videos.list` (id=…, per page) +
-   * `videoCategories.list` → about 2 units per 50 likes + 1 (about 195 units for 4,900 likes).
+   * `videos.list` (myRating=like, for the total count, DECISIONS.md 61) + `playlistItems.list`
+   * (playlistId=LL, every page) + `videos.list` (id=…, per page) + `videoCategories.list`
+   * → about 2 units per 50 likes + 2 (about 200 units for 4,900 likes).
    */
   getLikedVideos(options?: LikedLoadOptions): Promise<LikedVideosResult>
 

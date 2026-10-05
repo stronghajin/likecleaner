@@ -45,6 +45,8 @@ class FakeYouTube:
     def __init__(self) -> None:
         self.calls: list[str] = []
         self.fail_with: tuple[int, str] | None = None
+        # pageInfo.totalResults of myRating=like: more than LL hands out (DECISIONS.md 61).
+        self.total_liked = 9
 
     def videos(self, request: httpx.Request) -> httpx.Response:
         params = request.url.params
@@ -52,6 +54,9 @@ class FakeYouTube:
             status, reason = self.fail_with
             self.calls.append("videos.list")
             return httpx.Response(status, json={"error": {"code": status, "message": reason, "errors": [{"reason": reason}]}})
+        if params.get("myRating") == "like":
+            self.calls.append("videos.list(myRating)")
+            return httpx.Response(200, json={"items": [{"id": "v1"}], "pageInfo": {"totalResults": self.total_liked}})
         self.calls.append(f"videos.list(id={params['id']})")
         category = {"v3": "20"}
         ids = params["id"].split(",")
@@ -165,6 +170,7 @@ async def test_whole_liked_list_from_the_liked_playlist(client, google, youtube)
 
     body = (await client.get("/api/likes")).json()
     assert body["hiddenUnavailable"] == 2
+    assert body["totalLiked"] == 9
     videos = body["videos"]
     assert [v["id"] for v in videos] == ["v1", "v2", "v3"]  # liked order, each once
     assert videos[0] == {
@@ -181,9 +187,9 @@ async def test_whole_liked_list_from_the_liked_playlist(client, google, youtube)
     # Details are asked only for watchable videos, one videos.list per LL page.
     assert "videos.list(id=v1,v2)" in youtube.calls
     assert "videos.list(id=v3,gone)" in youtube.calls
-    # 2 LL pages + 2 videos.list + the category lists (remembered across users and tests)
+    # The count + 2 LL pages + 2 videos.list + the category lists (remembered across users and tests)
     used = (await client.get("/api/quota")).json()["used"] - quota_before
-    assert used == 4 + sum(c.startswith("videoCategories.list") for c in youtube.calls)
+    assert used == 5 + sum(c.startswith("videoCategories.list") for c in youtube.calls)
 
 
 async def test_second_load_comes_from_memory_and_resync_reloads(client, google, youtube):
@@ -197,6 +203,7 @@ async def test_second_load_comes_from_memory_and_resync_reloads(client, google, 
 
     await _load_likes(client, refresh=True)
     assert youtube.calls[calls:] == [
+        "videos.list(myRating)",
         "playlistItems.list(LL,p1)",
         "videos.list(id=v1,v2)",
         "playlistItems.list(LL,p2)",
@@ -279,9 +286,13 @@ async def test_failed_calls_are_recorded_and_the_error_is_passed_on(client, goog
     assert status["error"] == {"status": 403, "reason": "quotaExceeded", "message": "quotaExceeded"}
     assert (await client.get("/api/likes")).status_code == 409
 
-    assert (await client.get("/api/quota")).json()["used"] == before + 1
-    last = (await _usage_rows())[-1]
-    assert (last.method, last.units, last.success) == ("playlistItems.list", 1, False)
+    # The like count fails first without stopping the load; then the LL page fails and stops it.
+    assert (await client.get("/api/quota")).json()["used"] == before + 2
+    rows = (await _usage_rows())[-2:]
+    assert [(r.method, r.units, r.success) for r in rows] == [
+        ("videos.list", 1, False),
+        ("playlistItems.list", 1, False),
+    ]
 
 
 async def test_quota_status(client, google, youtube):

@@ -46,6 +46,11 @@ export interface LikedVideosResult {
   videos: Video[]
   /** Deleted or private liked videos left out of `videos`. */
   hiddenUnavailable: number
+  /**
+   * YouTube's count of every like, or null if unknown (DECISIONS.md 61). More than
+   * videos + hiddenUnavailable means older likes YouTube does not hand out (about 5,000 at most).
+   */
+  totalLiked: number | null
 }
 
 export interface Playlist {

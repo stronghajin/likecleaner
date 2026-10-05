@@ -40,6 +40,8 @@ interface LikedVideosState {
   progress: number | null
   /** Deleted/private liked videos left out of the list (DECISIONS.md 59). */
   hiddenUnavailable: number
+  /** Older likes YouTube did not hand out (DECISIONS.md 61). 0 = the list has every like. */
+  likesBeyondLimit: number
   error: string
   resync: () => Promise<void>
   view: LikedVideosView
@@ -64,6 +66,7 @@ export function LikedVideosProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState<number | null>(null)
   const [hiddenUnavailable, setHiddenUnavailable] = useState(0)
+  const [likesBeyondLimit, setLikesBeyondLimit] = useState(0)
   const [error, setError] = useState('')
   const started = useRef(false)
   const [view, setView] = useState<LikedVideosView>(DEFAULT_VIEW)
@@ -95,6 +98,8 @@ export function LikedVideosProvider({ children }: { children: ReactNode }) {
       const loaded = await api.getLikedVideos({ refresh, onProgress: setProgress })
       setVideos(loaded.videos)
       setHiddenUnavailable(loaded.hiddenUnavailable)
+      const read = loaded.videos.length + loaded.hiddenUnavailable
+      setLikesBeyondLimit(Math.max(0, (loaded.totalLiked ?? read) - read))
       // Drop selections for videos that are no longer liked.
       const stillLiked = new Set(loaded.videos.map((v) => v.id))
       keepOnly(stillLiked)
@@ -123,6 +128,7 @@ export function LikedVideosProvider({ children }: { children: ReactNode }) {
         loading,
         progress,
         hiddenUnavailable,
+        likesBeyondLimit,
         error,
         resync,
         view,

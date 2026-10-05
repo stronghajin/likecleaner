@@ -3,10 +3,11 @@ import MoveToPlaylistDialog from '../components/actions/MoveToPlaylistDialog'
 import RemoveLikeDialog from '../components/actions/RemoveLikeDialog'
 import Button from '../components/Button'
 import Pagination from '../components/Pagination'
+import ResyncButton from '../components/ResyncButton'
 import Select from '../components/Select'
 import SelectionBar from '../components/SelectionBar'
 import VideoTable from '../components/VideoTable'
-import { MAX_SELECTION } from '../services'
+import { FIRST_LIKES_LOAD_UNITS, likesLoadUnits, MAX_SELECTION } from '../services'
 import type { Job, Video } from '../services'
 import { useJob } from '../state/job'
 import { DEFAULT_VIEW, useLikedVideos } from '../state/likedVideos'
@@ -42,6 +43,10 @@ function countBy(videos: Video[], key: (v: Video) => string): { value: string; c
   return [...counts].map(([value, count]) => ({ value, count })).sort((a, b) => a.value.localeCompare(b.value))
 }
 
+/** Shown when YouTube did not hand out every like (DECISIONS.md 61). */
+const limitNotice = (total: number) =>
+  `YouTube lets us read about 5,000 of your ${formatNumber(total)} liked videos. Remove some likes and press Resync to reach older ones.`
+
 /** "Loading your liked videos… 1,250 loaded" (DECISIONS.md 59). */
 function loadingText(progress: number | null): string {
   return progress ? `Loading your liked videos… ${formatNumber(progress)} loaded` : 'Loading your liked videos…'
@@ -53,6 +58,7 @@ export default function LikedVideosPage() {
     loading,
     progress,
     hiddenUnavailable,
+    likesBeyondLimit,
     error,
     resync,
     view,
@@ -224,23 +230,34 @@ export default function LikedVideosPage() {
               onPageChange={(p) => updateView({ page: p })}
               onPageSizeChange={(size) => updateView({ pageSize: size })}
             />
-            <Button
+            <ResyncButton
+              units={likesLoadUnits(videos.length + hiddenUnavailable)}
               onClick={resync}
-              disabled={loading || running}
-              title={running ? JOB_RUNNING_HINT : 'Load your liked videos again from YouTube'}
-            >
-              {loading ? 'Resyncing…' : 'Resync'}
-            </Button>
+              loading={loading}
+              jobRunning={running}
+            />
           </div>
         </div>
       )}
       {videos && error && <p className="mt-2 text-right text-danger">{error}</p>}
 
+      {videos && likesBeyondLimit > 0 && (
+        <p className="mt-3 text-muted">{limitNotice(videos.length + hiddenUnavailable + likesBeyondLimit)}</p>
+      )}
+
       {/* Resync of a long list takes a while: show how far it got (DECISIONS.md 59). */}
       {videos && loading && <p className="mt-3 text-xs text-muted">{loadingText(progress)}</p>}
 
       <div className="mt-3 border bg-panel">
-        {!videos && loading && <p className="p-6 text-muted">{loadingText(progress)}</p>}
+        {!videos && loading && (
+          <div className="p-6">
+            <p className="text-muted">{loadingText(progress)}</p>
+            {/* DECISIONS.md 62: the first load is not free either. */}
+            <p className="mt-1 text-xs text-muted">
+              The first load after sign-in uses up to about {formatNumber(FIRST_LIKES_LOAD_UNITS)} units of today's quota.
+            </p>
+          </div>
+        )}
         {!videos && error && (
           <div className="flex items-center gap-4 p-6">
             <p className="text-danger">{error}</p>

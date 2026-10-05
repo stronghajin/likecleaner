@@ -50,6 +50,11 @@ class YouTubeClient:
             total_results=data.get("pageInfo", {}).get("totalResults"),
         )
 
+    async def count_liked_videos(self, access_token: str) -> int | None:
+        """`pageInfo.totalResults` of `myRating=like`: YouTube's own count of every like (1 unit, DECISIONS.md 61)."""
+        data = await self._get(access_token, "videos", {"part": "id", "myRating": "like", "maxResults": 1})
+        return data.get("pageInfo", {}).get("totalResults")
+
     async def get_videos(self, access_token: str, video_ids: list[str]) -> list[YouTubeVideo]:
         """Up to 50 IDs. Videos YouTube no longer serves are simply missing from the result."""
         data = await self._get(

@@ -22,6 +22,8 @@ class LikedVideosResponse(ApiModel):
     videos: list[VideoResponse]
     # Deleted/private videos left out of `videos`.
     hidden_unavailable: int
+    # YouTube's count of every like (DECISIONS.md 61). Above videos + hidden = older likes YouTube does not hand out.
+    total_liked: int | None = None
 
 
 class LikesLoadStatus(ApiModel):

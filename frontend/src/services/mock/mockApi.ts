@@ -469,10 +469,11 @@ export const mockApi: LikeCleanerApi = {
     }
     options?.onProgress?.(total)
     requireActive()
-    // playlistItems.list(LL) + videos.list per page, and one videoCategories.list call
-    chargeOrThrow(pagesFor(total) * 2 * QUOTA_COST.listPage + QUOTA_COST.listPage)
+    // The like count, playlistItems.list(LL) + videos.list per page, and one videoCategories.list call
+    chargeOrThrow(pagesFor(total) * 2 * QUOTA_COST.listPage + 2 * QUOTA_COST.listPage)
     persist()
-    return { videos: state.account.likedIds.map(toVideo), hiddenUnavailable: MOCK_HIDDEN_LIKES }
+    // The mock account is small enough to read whole, so there is no "about 5,000" notice.
+    return { videos: state.account.likedIds.map(toVideo), hiddenUnavailable: MOCK_HIDDEN_LIKES, totalLiked: total }
   },
 
   async getPlaylists() {

@@ -38,3 +38,17 @@ export function maxAffordableItems(type: JobType, unitsLeft: number, targetItemC
   const perItem = estimateUnits(type, 1, targetItemCount) - fixed
   return Math.max(0, Math.min(MAX_SELECTION, Math.floor((unitsLeft - fixed) / perItem)))
 }
+
+/**
+ * Loading the liked list (DECISIONS.md 59, 61): the like count, then per 50 likes one LL page and one
+ * videos.list, plus about one category call. `likedCount` = liked entries read last time.
+ */
+export const likesLoadUnits = (likedCount: number) => pagesFor(likedCount) * 2 * QUOTA_COST.listPage + 2 * QUOTA_COST.listPage
+
+/** YouTube hands out about 5,000 likes at most, so a first load costs about this much at most (202, rounded). */
+export const FIRST_LIKES_LOAD_UNITS = 200
+
+/** Loading one playlist (DECISIONS.md 6): playlistItems.list pages + videos.list pages for watchable videos. */
+export function playlistLoadUnits(itemCount: number, watchableCount: number): number {
+  return (pagesFor(itemCount) + (watchableCount > 0 ? pagesFor(watchableCount) : 0)) * QUOTA_COST.listPage
+}

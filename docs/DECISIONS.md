@@ -167,3 +167,17 @@
     - 삭제/비공개로 볼 수 없는 영상은 아이콘을 회색 비활성으로 두고 `Not available` 툴팁을 보여준다.
     - Playlists 화면의 재생목록 목록에도 각 재생목록 링크(`https://www.youtube.com/playlist?list={playlistId}`)를 둔다. 재생목록 선택 버튼 옆에 따로 둔다.
     - 주소는 `frontend/src/utils/youtubeLinks.ts` 한 곳에서 만들고, 아이콘은 `components/YouTubeLink.tsx`를 함께 쓴다. mock/실제 모드 모두 같고, API 호출이나 할당량은 쓰지 않는다.
+
+## P2-5 전 보완 (2026-10-05)
+
+61. 좋아요가 YouTube 상한(약 5,000개)보다 많으면 안내한다.
+    - 좋아요를 불러올 때 맨 먼저 `videos.list(myRating=like, part=id, maxResults=1)`를 한 번 불러 `pageInfo.totalResults`(YouTube가 아는 좋아요 전체 수)를 받는다(1 unit). 이 호출이 실패해도 불러오기는 계속하고, 안내만 보이지 않는다.
+    - 전체 수가 불러온 개수(보이는 영상 + 숨긴 영상)보다 크면 Liked Videos 목록 위에 회색(`muted`) 안내를 보여준다: `YouTube lets us read about 5,000 of your N liked videos. Remove some likes and press Resync to reach older ones.` 같으면(또는 전체 수를 모르면) 보여주지 않는다.
+    - N은 "불러온 개수 + 못 불러온 개수"로 계산하므로, 작업으로 좋아요를 취소하면 그만큼 줄어든다.
+    - 52번에서 "`totalResults`는 화면 숫자에 쓰지 않는다"고 했지만, 이 안내 문구에만 쓴다. mock 계정은 전부 읽히므로 안내가 나오지 않는다.
+62. `Resync` 버튼에 예상 소모량을 보여준다.
+    - 마우스를 올리면 `Uses about N units` 툴팁이 나온다. 작업 중일 때는 기존처럼 `Available when the current job finishes`.
+    - Liked Videos: `(지난번 읽은 좋아요 수 ÷ 50, 올림) × 2 + 2` (LL 페이지 + `videos.list` + 전체 수 1 + 카테고리 약 1). 4,919개면 약 200 units.
+    - Playlists: `(항목 수 ÷ 50, 올림) + (볼 수 있는 영상 수 ÷ 50, 올림)`. 열려 있는 재생목록 기준이다.
+    - 남은 할당량이 예상보다 적으면 `Resync`를 비활성화하고 버튼 왼쪽에 빨간 글씨 `Not enough quota to resync (needs about N units).`를 표시한다.
+    - 로그인 직후 처음 불러오는 동안 로딩 문구 아래에 작게 `The first load after sign-in uses up to about 200 units of today's quota.`를 표시한다(최대 5,000개 기준 202 units를 반올림).

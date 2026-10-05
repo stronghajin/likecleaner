@@ -20,5 +20,13 @@ export type { LikeCleanerApi, LikedLoadOptions, LoadOptions } from './api'
 export { ApiError } from './errors'
 export { isRetryable, summarizeJob } from './jobSummary'
 export type { JobCounts } from './jobSummary'
-export { estimateUnits, MAX_SELECTION, maxAffordableItems, QUOTA_COST } from './quotaEstimate'
+export {
+  estimateUnits,
+  FIRST_LIKES_LOAD_UNITS,
+  likesLoadUnits,
+  MAX_SELECTION,
+  maxAffordableItems,
+  playlistLoadUnits,
+  QUOTA_COST,
+} from './quotaEstimate'
 export type * from './types'

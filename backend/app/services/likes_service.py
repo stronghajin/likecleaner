@@ -1,6 +1,8 @@
 """The whole liked list, from the "Liked videos" playlist (LL) (DECISIONS.md 59, replaces 52).
 
-`videos.list(myRating=like)` stops near 1,000; LL goes to the end. Each LL page
+`videos.list(myRating=like)` stops near 1,000; LL goes to the end (YouTube's cap of
+about 5,000). One `myRating=like` call (1 unit) still tells how many likes there
+are in all, for the notice when LL stops short (DECISIONS.md 61). Each LL page
 (1 unit) is followed by one `videos.list(id=…)` (1 unit) for the details of the
 videos that can still be watched; deleted/private ones are only counted.
 
@@ -14,6 +16,7 @@ import logging
 from dataclasses import dataclass, field
 
 import httpx
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import SessionFactory
 from app.core.errors import AppError
@@ -90,6 +93,7 @@ def cancel(user_id: int) -> None:
 async def _run(http: httpx.AsyncClient, user_id: int, load: _Load) -> None:
     try:
         async with SessionFactory() as db:
+            total_liked = await _count_likes(db, http, user_id)
             liked: list[YouTubeVideo] = []
             seen: set[str] = set()
             page_token: str | None = None
@@ -123,6 +127,7 @@ async def _run(http: httpx.AsyncClient, user_id: int, load: _Load) -> None:
         result = LikedVideosResponse(
             videos=[_video(v, names) for v in liked],
             hidden_unavailable=load.hidden,
+            total_liked=total_liked,
         )
         memory_store.set_likes(user_id, result)
     except AppError as e:
@@ -130,6 +135,16 @@ async def _run(http: httpx.AsyncClient, user_id: int, load: _Load) -> None:
     except Exception:
         logger.exception("Loading liked videos failed")
         load.error = ErrorResponse(status=500, reason="internalError", message="Something went wrong on the server.")
+
+
+async def _count_likes(db: AsyncSession, http: httpx.AsyncClient, user_id: int) -> int | None:
+    """Only feeds the "about 5,000 of your N" notice (DECISIONS.md 61), so a failure here does not stop the load."""
+    try:
+        return await youtube_gateway.call(
+            db, http, user_id, "videos.list", lambda yt, token: yt.count_liked_videos(token)
+        )
+    except AppError:
+        return None
 
 
 def _video(v: YouTubeVideo, names: dict[str, str]) -> VideoResponse:
