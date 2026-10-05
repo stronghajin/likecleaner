@@ -15,7 +15,7 @@
 | **P2-4 조회 API** (완료) | `GET /api/likes`(끝 페이지까지, 최근 약 1,000개 DECISIONS 52 + 카테고리 이름, 서버 메모리 보관, DECISIONS 46), `/api/playlists`, `/api/playlists/{id}/items`(+ `videos.list`, DECISIONS 6), `/api/quota`(태평양 시간 하루). 실패 호출을 포함한 모든 호출의 units 기록 | 실제 계정의 좋아요와 재생목록 수가 YouTube와 같고, 할당량이 실제 호출량과 맞음 | 화면 숫자 비교 |
 | **P2-5 작업 처리** (완료, 작업 버튼의 화면 연결을 P2-6에서 앞당김) | `POST /api/jobs`(1인 1작업, 100개, 할당량 예상 검사, DECISIONS 30), 워커(사용자별 동시 진행, 항목은 순차, DECISIONS 41). 처리 규칙은 아래 참고 | 자동 테스트로 규칙 확인 + 실제 계정에서 2~3개 소량 실행 | 테스트 계정 확인 |
 | **P2-6 프론트엔드 교체** (완료, DECISIONS 64) | (작업 생성·Retry Failed·진행 조회, 조회 간격 1.5초, DECISIONS 55의 화면 갱신은 P2-5에서 먼저 함) services에 실제 API 구현 추가, 설정 하나로 mock / 실제 전환(DECISIONS 47), `signIn`을 Google 페이지 이동으로, Vite 프록시(DECISIONS 35), 로그인 만료 시 로그인 화면, 조회 간격 1.5초(48) | `TEST_SCENARIOS.md` 중 실제 계정으로 가능한 것이 그대로 동작 | 화면 확인 |
-| **P2-7 운영 마무리** (일부 완료: 30일 삭제, 개인정보처리방침, `PHASE2_NOTES.md`. 배포 구성 확정(DECISIONS 65), 배포는 남음, 계획은 `DEPLOY_PLAN.md`) | 배포(화면 Vercel + 백엔드 홈서버, HTTPS, DECISIONS 34·65), 화면 주소 하나로 운영(Vercel rewrite, 35 → 65), 운영 주소로 Google 설정과 앱 게시(DECISIONS 51, 기획서 14장 2번 확인), 30일 데이터 매일 삭제 확인, DB 백업, 로그, PHASE1_NOTES 4장 "공개 배포 전" 확인 | 지인 계정이 실제 주소로 가입 → 승인 → 정리 작업 완료 | 호스팅 가입, F, 지인 테스트 |
+| **P2-7 운영 마무리** (일부 완료: 30일 삭제, 개인정보처리방침, `PHASE2_NOTES.md`. 첫 배포 2026-10-05 완료(DECISIONS 65), 앱 게시와 지인 테스트는 남음, `DEPLOY_PLAN.md`) | 배포(화면 Vercel + 백엔드 홈서버, HTTPS, DECISIONS 34·65), 화면 주소 하나로 운영(Vercel rewrite, 35 → 65), 운영 주소로 Google 설정과 앱 게시(DECISIONS 51, 기획서 14장 2번 확인), 30일 데이터 매일 삭제 확인, DB 백업, 로그, PHASE1_NOTES 4장 "공개 배포 전" 확인 | 지인 계정이 실제 주소로 가입 → 승인 → 정리 작업 완료 | 호스팅 가입, F, 지인 테스트 |
 
 P2-5 처리 규칙:
 - 이미 있는 영상 건너뛰기(기획서 6-6)
