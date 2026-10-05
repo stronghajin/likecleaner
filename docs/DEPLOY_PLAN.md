@@ -1,8 +1,8 @@
 # 배포 계획 (DEPLOY_PLAN)
 
 목표: 나와 친구 몇 명이 인터넷에서 LikeCleaner를 쓸 수 있게 하기.
-작성: 2026-10-05, 갱신: 2026-10-05 (배포 구성 확정, DECISIONS 65).
-**배포 구성은 정해졌고 배포용 파일도 만들었습니다(아래 표). 아직 서버 설정과 첫 배포는 하지 않았습니다.** 7장의 질문은 아직 열려 있습니다.
+작성: 2026-10-05, 갱신: 2026-10-06 (첫 배포와 실제 계정 테스트 완료).
+**2026-10-05 첫 배포를 마쳤습니다.** 화면 https://likecleaner.kknaks.cloud , 백엔드 https://likecleaner-api.kknaks.cloud . 레포 주인 계정으로 로그인과 정리 작업까지 확인했습니다. 친구 공유 전에 할 일(6장 7·8·11번)과 7장의 질문이 남아 있습니다.
 
 | 파일 | 무엇 |
 |---|---|
@@ -160,16 +160,16 @@
 
 | # | 할 일 | 누가 |
 |---|---|---|
-| 1 | 배포용 코드: Dockerfile, `deploy/docker-compose.prod.yml`, GitHub Actions 2개(백엔드 배포, 사용자 관리), `frontend/vercel.json`, 백업 스크립트 (만듦, 로컬 도커로 실행·사용자 등록·백업·재생성 후 DB 유지 확인) → 커밋 | kknaks |
-| 2 | 홈서버: 도메인 연결(`likecleaner`, `likecleaner-api`), Nginx Proxy Manager에 `likecleaner-api.kknaks.cloud` → 48200 + 인증서, 백업 cron(`docker exec likecleaner-api python -m scripts.backup`). 폴더 `/home/kknaks/likecleaner`는 첫 배포가 만듦 | kknaks |
-| 3 | `backend/.env.prod` 작성(운영용 키 새로 생성) → GitHub Secrets에 `ENV_PROD`, `PROD_SSH_*` 넣기 | kknaks |
-| 4 | 첫 백엔드 배포 → `https://likecleaner-api.kknaks.cloud/api/health`가 ok | kknaks |
-| 5 | Vercel 가입, 이 레포 연결(Root Directory `frontend`), 도메인 `likecleaner.kknaks.cloud` 추가 | 레포 주인 (도메인 연결은 kknaks와 같이) |
-| 6 | Google Cloud: 클라이언트 `likecleaner-local` 편집(또는 운영용 새 클라이언트) → 승인된 리디렉션 URI에 `https://likecleaner.kknaks.cloud/api/auth/google/callback` 추가 | 레포 주인 |
+| 1 | 배포용 코드: Dockerfile, `deploy/docker-compose.prod.yml`, GitHub Actions 2개(백엔드 배포, 사용자 관리), `frontend/vercel.json`, 백업 스크립트 → 커밋 | ✅ 2026-10-05 |
+| 2 | 홈서버: 도메인 연결(`likecleaner`, `likecleaner-api`), Nginx Proxy Manager에 `likecleaner-api.kknaks.cloud` → 48200 + 인증서, 백업 cron(`docker exec likecleaner-api python -m scripts.backup`). 폴더 `/home/kknaks/likecleaner`는 첫 배포가 만듦 | ✅ 2026-10-05 |
+| 3 | `backend/.env.prod` 작성(운영용 키 새로 생성) → GitHub Secrets에 `ENV_PROD`, `PROD_SSH_*` 넣기 | ✅ 2026-10-05 |
+| 4 | 첫 백엔드 배포 → `https://likecleaner-api.kknaks.cloud/api/health`가 ok | ✅ 2026-10-05 |
+| 5 | Vercel 가입, 이 레포 연결(Root Directory `frontend`), 도메인 `likecleaner.kknaks.cloud` 추가. Vercel이 요구한 CNAME과 `_vercel` TXT를 dnszi에 등록 | ✅ 2026-10-05 |
+| 6 | Google Cloud: 클라이언트 `likecleaner-local` 편집(또는 운영용 새 클라이언트) → 승인된 리디렉션 URI에 `https://likecleaner.kknaks.cloud/api/auth/google/callback` 추가 | ✅ 2026-10-05 |
 | 7 | Google Cloud: 브랜딩 — 홈페이지 `https://likecleaner.kknaks.cloud`, 개인정보처리방침 `https://likecleaner.kknaks.cloud/privacy`, 승인된 도메인 `kknaks.cloud`. 로고는 올리지 않음(DECISIONS 51). 도메인 소유 확인(Search Console)이 요구되면 kknaks가 함 **(확인 필요)** | 레포 주인 + kknaks |
 | 8 | Google Cloud: 대상 → **앱 게시**(In production). `youtube` 범위는 민감한 범위라 검증 없이는 "Google에서 확인하지 않은 앱" 화면이 나옴(7장 질문 4). 검증 안 된 앱의 사용자 수 상한(약 100명) **(확인 필요)**. 게시 후 테스트 사용자 제한과 7일 토큰 만료가 없어지는지 확인(SPEC 14장 PoC 2번) | 레포 주인 |
-| 9 | Actions `manage-users`로 내 이메일 등록 → 운영 주소로 로그인 → `TEST_SCENARIOS.md` 2부 일부(R1, R2, R6, R7 + 작업 2~3개) | 같이 |
-| 10 | 백업 확인: 다음날 백업 파일이 생겼는지, 복구 연습 1번 | kknaks |
+| 9 | Actions `manage-users`로 내 이메일 등록 → 운영 주소로 로그인 → `TEST_SCENARIOS.md` 2부 일부(R1, R2, R6, R7 + 작업 2~3개) | ✅ 2026-10-05 (로그인, YouTube 연결, 좋아요·재생목록 조회, 작업 8번과 Retry 1번, 서버 오류 없음) |
+| 10 | 백업 확인: 다음날 백업 파일이 생겼는지, 복구 연습 1번 | 백업은 2026-10-06 04:00에 자동으로 생김. 복구 연습은 남음 |
 | 11 | 친구 공유 — 8장 체크리스트 | 레포 주인 |
 
 ## 7. 아직 정할 것 (질문)
@@ -208,3 +208,10 @@
 | 안 고른 이유 | 비용과 도메인이 따로 필요. 홈서버로 비용 0, 도메인 이미 있음 | 서버 보안·관리를 직접 해야 함 | 맥이 꺼지거나 잠자면 서비스 중단, 개발과 운영이 섞임 |
 
 홈서버의 위험: 정전이나 집 인터넷 장애 때 서비스가 멈춤. 친구 몇 명이 쓰는 규모라 감수합니다.
+
+## 10. 첫 배포 때 겪은 것 (2026-10-05)
+
+- **dnszi 반영 지연:** dnszi 화면에 레코드를 저장해도 네임서버에 나오기까지 몇 분 걸렸다(영역 번호 SOA serial이 바뀌어야 반영된 것). 반영 전에 주소를 열어 보면 그 "없음" 답을 KT DNS(168.126.63.1)가 **최대 2시간** 기억해서, 다른 DNS에서는 열리는데 내 컴퓨터에서만 `Can't reach`가 나왔다. 새 주소를 만들 때는 dnszi 반영을 확인한 뒤에 열어 보고, 이미 막혔으면 컴퓨터 DNS를 `8.8.8.8`로 바꾸고 캐시를 비운다(`sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder`).
+- **Vercel 도메인 소유 확인:** `kknaks.cloud`가 다른 Vercel 계정에서도 쓰여서, 레포 주인 계정에 연결할 때 `_vercel` TXT 레코드를 요구했다.
+- **백업 파일 이름:** 컨테이너 시계가 UTC라서 새벽 4시(KST) 백업이 전날 날짜로 저장됐다. `scripts/backup.py`가 한국 날짜로 이름을 짓도록 고쳤다.
+- **로그의 404:** 백엔드 주소에 `/.env`, `/` 같은 자동 스캔 요청이 계속 들어온다. 없는 주소라 404로 끝나며 문제 없다.

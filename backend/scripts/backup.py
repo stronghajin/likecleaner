@@ -16,6 +16,7 @@ from pathlib import Path
 from sqlalchemy.engine import make_url
 
 from app.core.config import BACKEND_DIR, get_settings
+from app.core.time import KST, now_utc
 
 KEEP_DAYS = 14
 PREFIX = "likecleaner-"
@@ -29,7 +30,8 @@ def main() -> int:
     backup_dir = Path(os.environ.get("BACKUP_DIR", BACKEND_DIR / "backups"))
     backup_dir.mkdir(parents=True, exist_ok=True)
 
-    today = date.today()
+    # The container clock is UTC; name files by the Korean date (04:00 KST is still "yesterday" in UTC).
+    today = now_utc().astimezone(KST).date()
     target = backup_dir / f"{PREFIX}{today.isoformat()}.db"
     partial = target.with_suffix(".db.partial")
     source = sqlite3.connect(db_path)

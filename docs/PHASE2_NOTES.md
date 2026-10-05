@@ -1,6 +1,6 @@
 # Phase 2 정리 노트
 
-Phase 2(백엔드, Google 로그인, YouTube 연결)에서 만든 것과 기획서(`SPEC.md`)와 달라진 점, 완료 기준 점검, 남은 과제입니다. (2026-10-05, P2-1 ~ P2-6 완료, P2-7 일부)
+Phase 2(백엔드, Google 로그인, YouTube 연결)에서 만든 것과 기획서(`SPEC.md`)와 달라진 점, 완료 기준 점검, 남은 과제입니다. (2026-10-05, P2-1 ~ P2-6 완료, P2-7 일부. 2026-10-06 첫 배포 완료 반영)
 결정의 자세한 내용은 `DECISIONS.md`의 번호를 보세요.
 
 ## 1. 지금 되는 것
@@ -63,7 +63,7 @@ Phase 2(백엔드, Google 로그인, YouTube 연결)에서 만든 것과 기획�
 
 | 과제 | 내용 | 관련 |
 |---|---|---|
-| 배포 | 구성 확정: 화면 Vercel + 백엔드 홈서버, GitHub Actions 자동 배포(`DEPLOY_PLAN.md`). 배포용 코드와 첫 배포가 남음 | 34, 65 |
+| ~~배포~~ | 2026-10-05 완료: 화면 Vercel + 백엔드 홈서버, GitHub Actions 자동 배포, 레포 주인 계정으로 실제 로그인·작업 확인(`DEPLOY_PLAN.md`) | 34, 65 |
 | 화면 주소 하나로 운영 | FastAPI 대신 Vercel이 `/api/*`를 백엔드로 넘기는 방식으로 바꿈(`frontend/vercel.json`) | 35 → 65 |
 | 운영 주소로 Google 설정 | 리디렉션 주소, `APP_BASE_URL`, 브랜딩(홈페이지·개인정보처리방침 주소, 승인된 도메인) | 51, 57 |
 | OAuth 앱 게시 (In production) | 게시 후 `youtube` 스코프 로그인과 refresh token 발급 확인(SPEC 14장 PoC 2번). Testing의 7일 만료가 사라지는지 확인 | 51 |

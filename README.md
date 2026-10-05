@@ -1,7 +1,7 @@
 # LikeCleaner
 
 YouTube "좋아요 한 동영상"과 재생목록을 한 화면에서 보고 한꺼번에 정리하는 웹 툴입니다.
-지금은 **Phase 2**(실제 Google 로그인과 YouTube 연결) 단계입니다. 아직 인터넷에 올리지 않았고, 이 컴퓨터에서만 실행합니다.
+지금은 **Phase 2**(실제 Google 로그인과 YouTube 연결) 단계입니다. 운영 주소는 https://likecleaner.kknaks.cloud 입니다(2026-10-05 배포). 배포, 친구 등록, 백업은 [docs/DEPLOY_PLAN.md](docs/DEPLOY_PLAN.md)를 보세요. 아래는 이 컴퓨터에서 개발할 때 실행하는 방법입니다.
 
 > ⚠️ **실제 모드에서 누르는 작업(좋아요 취소, 이동, 재생목록에서 제거)은 진짜 YouTube 계정을 바꿉니다.** 연습은 가짜 데이터 모드에서 하세요.
 
